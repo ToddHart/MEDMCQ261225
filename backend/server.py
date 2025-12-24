@@ -1299,122 +1299,21 @@ async def get_payment_status(
     request: Request,
     user_id: str = Depends(get_current_user)
 ):
-    """Get payment status for a checkout session"""
-    stripe_api_key = os.environ.get('STRIPE_API_KEY')
-    if not stripe_api_key:
-        raise HTTPException(status_code=500, detail="Stripe not configured")
-    
-    host_url = str(request.base_url).rstrip('/')
-    webhook_url = f"{host_url}/api/webhook/stripe"
-    
-    stripe_checkout = StripeCheckout(api_key=stripe_api_key, webhook_url=webhook_url)
-    
-    try:
-        status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
-        
-        # Update transaction in database
-        update_data = {
-            "status": status.status,
-            "payment_status": status.payment_status,
-            "updated_at": datetime.utcnow().isoformat()
-        }
-        
-        # If payment is successful, update user subscription
-        if status.payment_status == "paid":
-            # Check if already processed
-            existing = await db.payment_transactions.find_one({
-                "session_id": session_id,
-                "payment_status": "paid"
-            })
-            
-            if not existing:
-                # Update transaction
-                await db.payment_transactions.update_one(
-                    {"session_id": session_id},
-                    {"$set": update_data}
-                )
-                
-                # Get transaction to find package
-                transaction = await db.payment_transactions.find_one({"session_id": session_id})
-                if transaction:
-                    package_id = transaction.get('package_id', 'monthly')
-                    package = SUBSCRIPTION_PACKAGES.get(package_id, SUBSCRIPTION_PACKAGES['monthly'])
-                    
-                    # Calculate subscription end date
-                    if package_id == 'weekly':
-                        end_date = datetime.utcnow() + timedelta(days=7)
-                    elif package_id == 'monthly':
-                        end_date = datetime.utcnow() + timedelta(days=30)
-                    elif package_id == 'quarterly':
-                        end_date = datetime.utcnow() + timedelta(days=90)
-                    else:  # annual
-                        end_date = datetime.utcnow() + timedelta(days=365)
-                    
-                    # Update user subscription
-                    await db.users.update_one(
-                        {"id": user_id},
-                        {"$set": {
-                            "subscription_status": "active",
-                            "subscription_plan": package_id,
-                            "subscription_start": datetime.utcnow().isoformat(),
-                            "subscription_end": end_date.isoformat()
-                        }}
-                    )
-        else:
-            await db.payment_transactions.update_one(
-                {"session_id": session_id},
-                {"$set": update_data}
-            )
-        
-        return {
-            "status": status.status,
-            "payment_status": status.payment_status,
-            "amount_total": status.amount_total,
-            "currency": status.currency
-        }
-    except Exception as e:
-        logger.error(f"Error getting payment status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Get payment status for a checkout session - DISABLED"""
+    raise HTTPException(
+        status_code=503,
+        detail="Payment system is temporarily disabled. Please check back later."
+    )
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
-    """Handle Stripe webhooks"""
-    stripe_api_key = os.environ.get('STRIPE_API_KEY')
-    if not stripe_api_key:
-        raise HTTPException(status_code=500, detail="Stripe not configured")
-    
-    host_url = str(request.base_url).rstrip('/')
-    webhook_url = f"{host_url}/api/webhook/stripe"
-    
-    stripe_checkout = StripeCheckout(api_key=stripe_api_key, webhook_url=webhook_url)
-    
-    try:
-        body = await request.body()
-        signature = request.headers.get("Stripe-Signature")
-        
-        webhook_response = await stripe_checkout.handle_webhook(body, signature)
-        
-        # Update transaction based on webhook
-        if webhook_response.session_id:
-            await db.payment_transactions.update_one(
-                {"session_id": webhook_response.session_id},
-                {"$set": {
-                    "status": webhook_response.event_type,
-                    "payment_status": webhook_response.payment_status,
-                    "updated_at": datetime.utcnow().isoformat()
-                }}
-            )
-        
-        return {"status": "received"}
-    except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        return {"status": "error", "message": str(e)}
+    """Handle Stripe webhooks - DISABLED"""
+    return {"status": "disabled", "message": "Payment system is temporarily disabled."}
 
 @api_router.get("/payments/config")
 async def get_stripe_config():
-    """Get Stripe publishable key for frontend"""
-    publishable_key = os.environ.get('STRIPE_PUBLISHABLE_KEY')
-    return {"publishable_key": publishable_key}
+    """Get Stripe publishable key for frontend - DISABLED"""
+    return {"publishable_key": None, "disabled": True, "message": "Payment system is temporarily disabled."}
 
 @api_router.get("/user/subscription")
 async def get_user_subscription(user_id: str = Depends(get_current_user)):
@@ -1426,7 +1325,8 @@ async def get_user_subscription(user_id: str = Depends(get_current_user)):
     return {
         "subscription_status": user.get("subscription_status", "free"),
         "subscription_plan": user.get("subscription_plan"),
-        "subscription_end": user.get("subscription_end")
+        "subscription_end": user.get("subscription_end"),
+        "payments_disabled": True
     }
 
 # Include router in app
