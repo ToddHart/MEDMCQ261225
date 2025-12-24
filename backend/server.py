@@ -1095,6 +1095,162 @@ async def initialize_sample_data():
     return {"message": f"Initialized {len(comprehensive_questions)} sample questions"}
 
 # ============================================================================
+# UNE PRIORITY QUESTION SYSTEM
+# ============================================================================
+
+@api_router.get("/unlock-status")
+async def get_unlock_status(user_id: str = Depends(get_current_user)):
+    """Get user's question bank unlock status."""
+    progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
+    
+    if not progress:
+        return {
+            "full_bank_unlocked": False,
+            "qualifying_sessions_completed": 0,
+            "sessions_remaining": 3,
+            "requirement": "Score 85% or higher on 50+ questions in 3 separate sessions to unlock the full question bank."
+        }
+    
+    full_bank_unlocked = progress.get('full_bank_unlocked', False)
+    qualifying_sessions = progress.get('qualifying_sessions_completed', 0)
+    
+    return {
+        "full_bank_unlocked": full_bank_unlocked,
+        "qualifying_sessions_completed": qualifying_sessions,
+        "sessions_remaining": max(0, 3 - qualifying_sessions),
+        "requirement": "Score 85% or higher on 50+ questions in 3 separate sessions to unlock the full question bank."
+    }
+
+@api_router.post("/init/une-questions")
+async def initialize_une_questions():
+    """Import UNE priority questions from the Excel file."""
+    try:
+        une_file_path = ROOT_DIR / 'une_questions.xlsx'
+        
+        if not une_file_path.exists():
+            raise HTTPException(status_code=404, detail="UNE questions file not found")
+        
+        df = pd.read_excel(une_file_path)
+        
+        # Clear existing UNE priority questions
+        deleted = await db.questions.delete_many({"source": "une_priority"})
+        logger.info(f"Deleted {deleted.deleted_count} existing UNE priority questions")
+        
+        # Category mapping to handle variations
+        category_mapping = {
+            'anatomy': 'anatomy',
+            'general medicine': 'general medicine',
+            'pharmacology': 'pharmacology',
+            'microbiology': 'microbiology',
+            'pathology': 'pathology',
+            'cardiology': 'cardiology',
+            'hematology': 'hematology',
+            'respiratory': 'respiratory',
+            'infectious disease': 'infectious disease',
+            'gastroenterology': 'gastroenterology',
+            'surgery': 'surgery',
+            'endocrinology': 'endocrinology',
+            'nephrology': 'nephrology',
+            'rheumatology': 'rheumatology',
+            'neurology': 'neurology',
+            'ophthalmology': 'ophthalmology',
+            'psychiatry': 'psychiatry',
+            'community medicine': 'community medicine',
+            'general': 'general',
+        }
+        
+        questions = []
+        skipped = 0
+        
+        for idx, row in df.iterrows():
+            try:
+                question_text = str(row['question']).strip()
+                if not question_text or question_text == 'nan':
+                    skipped += 1
+                    continue
+                
+                # Parse options
+                options = []
+                for opt_col in ['optionA', 'optionB', 'optionC', 'optionD', 'optionE']:
+                    opt_val = row.get(opt_col, '')
+                    if pd.notna(opt_val) and str(opt_val).strip() and str(opt_val).strip() != 'nan':
+                        options.append(str(opt_val).strip())
+                    else:
+                        options.append('')  # Keep empty for consistency
+                
+                # Parse correct answer
+                correct_letter = str(row.get('correctAnswer', 'A')).upper().strip()
+                if correct_letter in ['A', 'B', 'C', 'D', 'E']:
+                    correct_index = ord(correct_letter) - ord('A')
+                else:
+                    correct_index = 0
+                
+                # Parse category
+                raw_category = str(row.get('category', 'general')).lower().strip()
+                category = category_mapping.get(raw_category, 'general')
+                
+                # Parse other fields
+                sub_category = str(row.get('subCategory', '')) if pd.notna(row.get('subCategory')) else None
+                explanation = str(row.get('explanation', '')) if pd.notna(row.get('explanation')) else 'No explanation provided.'
+                
+                year_val = int(row.get('year', 1)) if pd.notna(row.get('year')) else 1
+                year_val = max(1, min(6, year_val))
+                
+                level_val = str(int(row.get('level', 2))) if pd.notna(row.get('level')) else '2'
+                
+                question_doc = {
+                    "id": f"une-{idx+1:05d}",
+                    "question": question_text,
+                    "options": options,
+                    "correct_answer": correct_index,
+                    "explanation": explanation,
+                    "category": category,
+                    "sub_category": sub_category,
+                    "year": year_val,
+                    "difficulty": level_val,
+                    "source": "une_priority",
+                    "user_id": None,
+                    "verified": True,
+                    "quarantined": False,
+                    "created_at": datetime.utcnow().isoformat()
+                }
+                
+                questions.append(question_doc)
+                
+            except Exception as e:
+                logger.warning(f"Skipping row {idx} due to error: {e}")
+                skipped += 1
+                continue
+        
+        # Insert questions
+        if questions:
+            await db.questions.insert_many(questions)
+        
+        return {
+            "success": True,
+            "questions_imported": len(questions),
+            "questions_skipped": skipped,
+            "message": f"Successfully imported {len(questions)} UNE priority questions."
+        }
+        
+    except Exception as e:
+        logger.error(f"Error importing UNE questions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/question-bank-stats")
+async def get_question_bank_stats():
+    """Get statistics about question banks."""
+    une_count = await db.questions.count_documents({"source": "une_priority"})
+    total_count = await db.questions.count_documents({})
+    other_count = total_count - une_count
+    
+    return {
+        "une_priority_questions": une_count,
+        "other_questions": other_count,
+        "total_questions": total_count
+    }
+
+# ============================================================================
 # BASIC ROUTES
 # ============================================================================
 
