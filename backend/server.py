@@ -1,15 +1,36 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
-import uuid
-from datetime import datetime, timezone
+from typing import List, Optional
+from datetime import datetime, timedelta
+import io
+import zipfile
+import json
+import pandas as pd
 
+# Import models
+from models import (
+    User, UserCreate, UserLogin, Token,
+    Question, QuestionCreate, QuestionCategory, DifficultyLevel,
+    UserProgress, UserAnswer, CategoryProgress, StudySession,
+    AIGenerationRequest, AIGenerationResponse,
+    ExamSession, ExamResult, QuestionReport,
+    UserAnalytics, DataExportRequest
+)
+
+# Import services
+from auth_service import (
+    hash_password, verify_password, create_access_token,
+    create_refresh_token, get_current_user
+)
+from storage_service import storage_service
+from ai_service import ai_service
+from adaptive_learning import adaptive_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,63 +40,11 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+# Create the main app
+app = FastAPI(title="MedMCQ API", version="1.0.0")
 
-# Create a router with the /api prefix
+# Create API router
 api_router = APIRouter(prefix="/api")
-
-
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class StatusCheckCreate(BaseModel):
-    client_name: str
-
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
-
-# Include the router in the main app
-app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +53,1273 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ============================================================================
+# AUTHENTICATION ROUTES
+# ============================================================================
+
+@api_router.post("/auth/register", response_model=User)
+async def register(user_data: UserCreate):
+    """Register a new user"""
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": user_data.email})
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Create user
+    user = User(
+        email=user_data.email,
+        full_name=user_data.full_name
+    )
+    
+    # Hash password and store separately
+    hashed_password = hash_password(user_data.password)
+    
+    # Store user in database
+    user_dict = user.model_dump()
+    user_dict['hashed_password'] = hashed_password
+    user_dict['created_at'] = user_dict['created_at'].isoformat()
+    
+    await db.users.insert_one(user_dict)
+    
+    # Initialize user progress
+    progress = UserProgress(user_id=user.id)
+    progress_dict = progress.model_dump()
+    progress_dict['last_activity'] = progress_dict['last_activity'].isoformat()
+    await db.user_progress.insert_one(progress_dict)
+    
+    return user
+
+@api_router.post("/auth/login", response_model=Token)
+async def login(credentials: UserLogin):
+    """Login and get access token"""
+    # Find user
+    user = await db.users.find_one({"email": credentials.email})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Verify password
+    if not verify_password(credentials.password, user['hashed_password']):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Create tokens
+    access_token = create_access_token(user['id'])
+    refresh_token = create_refresh_token(user['id'])
+    
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
+
+@api_router.get("/auth/me", response_model=User)
+async def get_current_user_info(user_id: str = Depends(get_current_user)):
+    """Get current user information"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "hashed_password": 0})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Convert datetime strings
+    if isinstance(user.get('created_at'), str):
+        user['created_at'] = datetime.fromisoformat(user['created_at'])
+    
+    return User(**user)
+
+# ============================================================================
+# QUESTION ROUTES
+# ============================================================================
+
+@api_router.get("/questions", response_model=List[Question])
+async def get_questions(
+    category: Optional[QuestionCategory] = None,
+    difficulty: Optional[DifficultyLevel] = None,
+    year: Optional[int] = None,
+    source: Optional[str] = None,
+    limit: int = 50,
+    user_id: str = Depends(get_current_user)
+):
+    """Get questions with optional filters - randomized order"""
+    query = {}
+    
+    if category:
+        query['category'] = category.value
+    if difficulty:
+        query['difficulty'] = difficulty.value
+    if year:
+        query['year'] = year
+    
+    # Source filtering
+    if source and source != 'all':
+        if source == 'imported':
+            # Only user's personal imported questions
+            query['user_id'] = user_id
+            query['source'] = 'imported'
+        elif source == 'shared':
+            # Global shared questions
+            query['source'] = 'shared'
+        elif source == 'sample':
+            # Sample questions
+            query['source'] = 'sample'
+    else:
+        # Get both global and user's personal questions
+        query['$or'] = [
+            {'user_id': None},  # Global questions (shared + sample)
+            {'user_id': user_id}  # User's personal questions
+        ]
+    
+    # Exclude quarantined questions
+    query['quarantined'] = {'$ne': True}
+    
+    questions = await db.questions.find(query, {"_id": 0}).to_list(limit * 2)
+    
+    # Convert datetime strings
+    for q in questions:
+        if isinstance(q.get('created_at'), str):
+            q['created_at'] = datetime.fromisoformat(q['created_at'])
+    
+    # Randomize order
+    import random
+    random.shuffle(questions)
+    
+    # Limit results
+    questions = questions[:limit]
+    
+    return [Question(**q) for q in questions]
+
+@api_router.get("/questions/adaptive", response_model=List[Question])
+async def get_adaptive_questions(
+    category: Optional[QuestionCategory] = None,
+    count: int = 10,
+    user_id: str = Depends(get_current_user)
+):
+    """Get questions adapted to user's current level"""
+    # Get user progress
+    progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
+    if not progress:
+        progress = UserProgress(user_id=user_id).model_dump()
+    else:
+        if isinstance(progress.get('last_activity'), str):
+            progress['last_activity'] = datetime.fromisoformat(progress['last_activity'])
+    
+    progress_obj = UserProgress(**progress)
+    
+    # Get all available questions
+    query = {'$or': [{'user_id': None}, {'user_id': user_id}]}
+    if category:
+        query['category'] = category.value
+        
+    all_questions = await db.questions.find(query, {"_id": 0}).to_list(1000)
+    
+    # Convert datetime
+    for q in all_questions:
+        if isinstance(q.get('created_at'), str):
+            q['created_at'] = datetime.fromisoformat(q['created_at'])
+    
+    questions_obj = [Question(**q) for q in all_questions]
+    
+    # If no questions from adaptive engine, return random questions
+    if len(questions_obj) == 0:
+        return []
+    
+    # Use adaptive engine to select questions
+    selected = adaptive_engine.get_next_questions(
+        progress_obj,
+        questions_obj,
+        category,
+        count
+    )
+    
+    # If adaptive selection returns nothing (new user), return random easy questions
+    if len(selected) == 0:
+        import random
+        # Filter for easy questions or just shuffle all
+        easy_questions = [q for q in questions_obj if q.difficulty == DifficultyLevel.EASY]
+        if len(easy_questions) > 0:
+            random.shuffle(easy_questions)
+            return easy_questions[:count]
+        else:
+            # No easy questions, just return random selection
+            random.shuffle(questions_obj)
+            return questions_obj[:count]
+    
+    return selected
+
+@api_router.post("/questions/answer")
+async def submit_answer(
+    answer: UserAnswer,
+    user_id: str = Depends(get_current_user)
+):
+    """Submit an answer and update progress"""
+    # Get question
+    question = await db.questions.find_one({"id": answer.question_id}, {"_id": 0})
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    if isinstance(question.get('created_at'), str):
+        question['created_at'] = datetime.fromisoformat(question['created_at'])
+    
+    question_obj = Question(**question)
+    
+    # Get user progress
+    progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
+    if not progress:
+        progress = UserProgress(user_id=user_id).model_dump()
+    else:
+        if isinstance(progress.get('last_activity'), str):
+            progress['last_activity'] = datetime.fromisoformat(progress['last_activity'])
+    
+    progress_obj = UserProgress(**progress)
+    
+    # Process answer with adaptive engine
+    updated_progress = adaptive_engine.process_answer(progress_obj, answer, question_obj)
+    
+    # Update database
+    progress_dict = updated_progress.model_dump()
+    progress_dict['last_activity'] = progress_dict['last_activity'].isoformat()
+    
+    await db.user_progress.update_one(
+        {"user_id": user_id},
+        {"$set": progress_dict},
+        upsert=True
+    )
+    
+    # Record answer in history
+    answer_dict = answer.model_dump()
+    answer_dict['user_id'] = user_id
+    answer_dict['timestamp'] = answer_dict['timestamp'].isoformat()
+    await db.answer_history.insert_one(answer_dict)
+    
+    # Update today's study session
+    today = datetime.utcnow().date().isoformat()
+    await db.study_sessions.update_one(
+        {"user_id": user_id, "date": today},
+        {
+            "$inc": {
+                "questions_answered": 1,
+                "correct_answers": 1 if answer.is_correct else 0,
+                "time_spent": answer.time_taken
+            },
+            "$addToSet": {"categories_studied": question_obj.category.value}
+        },
+        upsert=True
+    )
+    
+    return {
+        "success": True,
+        "current_difficulty": updated_progress.category_progress.get(
+            question_obj.category.value,
+            CategoryProgress(category=question_obj.category)
+        ).current_difficulty,
+        "current_streak": updated_progress.current_streak
+    }
+
+@api_router.post("/session/finish")
+async def finish_session(user_id: str = Depends(get_current_user)):
+    """Finish current study session and return session summary"""
+    # Get today's session
+    today = datetime.utcnow().date().isoformat()
+    session = await db.study_sessions.find_one(
+        {"user_id": user_id, "date": today},
+        {"_id": 0}
+    )
+    
+    if not session:
+        return {
+            "success": True,
+            "message": "No active session",
+            "session_data": None
+        }
+    
+    # Get user progress for additional stats
+    progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
+    
+    session_summary = {
+        "date": session.get("date"),
+        "questions_answered": session.get("questions_answered", 0),
+        "correct_answers": session.get("correct_answers", 0),
+        "accuracy": round((session.get("correct_answers", 0) / session.get("questions_answered", 1)) * 100, 1) if session.get("questions_answered", 0) > 0 else 0,
+        "time_spent": session.get("time_spent", 0),
+        "categories_studied": session.get("categories_studied", []),
+        "current_streak": progress.get("current_streak", 0) if progress else 0,
+        "total_questions_all_time": progress.get("total_questions_answered", 0) if progress else 0
+    }
+    
+    return {
+        "success": True,
+        "message": "Session finished successfully",
+        "session_data": session_summary
+    }
+
+@api_router.post("/questions/import")
+async def import_questions(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user)
+):
+    """Import questions from Excel/CSV file with duplicate detection"""
+    try:
+        # Read file
+        contents = await file.read()
+        
+        # Parse based on file type
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(contents))
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+        
+        # Validate columns - updated with new format including year
+        required_columns = [
+            'question', 'optionA', 'optionB', 'optionC', 'optionD', 'optionE',
+            'correctAnswer', 'explanation', 'category', 'subCategory', 'year', 'level'
+        ]
+        
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing columns: {', '.join(missing_columns)}. Required columns are: {', '.join(required_columns)}"
+            )
+        
+        # Get all existing question texts for duplicate detection
+        existing_questions = await db.questions.find(
+            {},
+            {"question": 1, "_id": 0}
+        ).to_list(100000)
+        existing_question_texts = set(q['question'].strip().lower() for q in existing_questions)
+        
+        # Track duplicates
+        duplicates_skipped = 0
+        duplicates_in_file = 0
+        questions_in_file = set()  # Track questions within the file to avoid duplicates in same upload
+        
+        # Create questions
+        questions = []
+        for _, row in df.iterrows():
+            try:
+                question_text = str(row['question']).strip()
+                question_text_lower = question_text.lower()
+                
+                # Check for duplicate in database
+                if question_text_lower in existing_question_texts:
+                    duplicates_skipped += 1
+                    logger.info(f"Skipping duplicate question (already in database): {question_text[:50]}...")
+                    continue
+                
+                # Check for duplicate within the same file
+                if question_text_lower in questions_in_file:
+                    duplicates_in_file += 1
+                    logger.info(f"Skipping duplicate question (duplicate in file): {question_text[:50]}...")
+                    continue
+                
+                questions_in_file.add(question_text_lower)
+                
+                # Parse options - always include all 5 options
+                options = [
+                    str(row['optionA']),
+                    str(row['optionB']),
+                    str(row['optionC']),
+                    str(row['optionD']),
+                    str(row['optionE'])
+                ]
+                
+                # Parse correct answer (A, B, C, D, or E)
+                correct_letter = str(row['correctAnswer']).upper().strip()
+                correct_index = ord(correct_letter) - ord('A')
+                
+                # Get sub-category
+                sub_category = str(row['subCategory']) if pd.notna(row['subCategory']) else None
+                
+                # Get year (1-6)
+                year_val = int(row['year']) if pd.notna(row['year']) else 2
+                year_val = max(1, min(6, year_val))  # Clamp to 1-6
+                
+                # Create question
+                question = Question(
+                    question=question_text,
+                    options=options,
+                    correct_answer=correct_index,
+                    explanation=str(row['explanation']),
+                    category=QuestionCategory(str(row['category']).lower()),
+                    sub_category=sub_category,
+                    year=year_val,
+                    difficulty=DifficultyLevel(str(row['level'])),
+                    user_id=user_id,
+                    source="imported"
+                )
+                
+                questions.append(question)
+            except Exception as e:
+                logger.warning(f"Skipping row due to error: {e}")
+                continue
+        
+        # Store in database
+        if questions:
+            questions_dict = [q.model_dump() for q in questions]
+            for q in questions_dict:
+                q['created_at'] = q['created_at'].isoformat()
+            
+            await db.questions.insert_many(questions_dict)
+        
+        # Build response message
+        total_in_file = len(df)
+        message_parts = [f"Successfully imported {len(questions)} questions"]
+        if duplicates_skipped > 0:
+            message_parts.append(f"{duplicates_skipped} duplicates skipped (already in database)")
+        if duplicates_in_file > 0:
+            message_parts.append(f"{duplicates_in_file} duplicates within file skipped")
+        
+        return {
+            "success": True,
+            "questions_imported": len(questions),
+            "duplicates_skipped": duplicates_skipped,
+            "duplicates_in_file": duplicates_in_file,
+            "total_in_file": total_in_file,
+            "message": ". ".join(message_parts)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error importing questions: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/questions/report")
+async def report_question(
+    report: QuestionReport,
+    user_id: str = Depends(get_current_user)
+):
+    """Report a question for review"""
+    report.user_id = user_id
+    
+    report_dict = report.model_dump()
+    report_dict['timestamp'] = report_dict['timestamp'].isoformat()
+    
+    await db.question_reports.insert_one(report_dict)
+    
+    # Check if this question has 4+ reports
+    report_count = await db.question_reports.count_documents({
+        "question_id": report.question_id,
+        "resolved": False
+    })
+    
+    # Quarantine question if 4+ reports
+    if report_count >= 4:
+        await db.questions.update_one(
+            {"id": report.question_id},
+            {"$set": {"quarantined": True}}
+        )
+        return {
+            "success": True, 
+            "message": "Report submitted. Question has been quarantined for review.",
+            "quarantined": True
+        }
+    
+    return {
+        "success": True, 
+        "message": f"Report submitted successfully. ({report_count}/4 reports)",
+        "quarantined": False
+    }
+
+# ============================================================================
+# AI GENERATION ROUTES
+# ============================================================================
+
+@api_router.post("/ai/generate", response_model=AIGenerationResponse)
+async def generate_ai_questions(
+    request: AIGenerationRequest,
+    user_id: str = Depends(get_current_user)
+):
+    """Generate questions using AI"""
+    # Get user
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check daily usage
+    if user['ai_daily_uses'] >= user['ai_max_daily_uses']:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily AI usage limit reached"
+        )
+    
+    # Generate questions
+    questions = await ai_service.generate_questions(request, user_id)
+    
+    if not questions:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate questions. Please try again."
+        )
+    
+    # Store questions
+    questions_dict = [q.model_dump() for q in questions]
+    for q in questions_dict:
+        q['created_at'] = q['created_at'].isoformat()
+    
+    await db.questions.insert_many(questions_dict)
+    
+    # Update user's AI usage
+    await db.users.update_one(
+        {"id": user_id},
+        {"$inc": {"ai_daily_uses": 1}}
+    )
+    
+    # Get updated usage
+    updated_user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    
+    return AIGenerationResponse(
+        questions=questions,
+        usage_count=updated_user['ai_daily_uses'],
+        remaining_daily_uses=updated_user['ai_max_daily_uses'] - updated_user['ai_daily_uses']
+    )
+
+@api_router.get("/ai/usage")
+async def get_ai_usage(user_id: str = Depends(get_current_user)):
+    """Get AI usage statistics"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "daily_uses": user['ai_daily_uses'],
+        "max_daily_uses": user['ai_max_daily_uses'],
+        "remaining_uses": user['ai_max_daily_uses'] - user['ai_daily_uses'],
+        "storage_used_gb": user['storage_used_gb'],
+        "storage_quota_gb": user['storage_quota_gb']
+    }
+
+# ============================================================================
+# ANALYTICS ROUTES
+# ============================================================================
+
+@api_router.get("/analytics", response_model=UserAnalytics)
+async def get_analytics(user_id: str = Depends(get_current_user)):
+    """Get user analytics"""
+    # Get progress
+    progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
+    if not progress:
+        raise HTTPException(status_code=404, detail="Progress not found")
+    
+    # Get study sessions
+    sessions = await db.study_sessions.find({"user_id": user_id}, {"_id": 0}).to_list(1000)
+    
+    # Calculate statistics
+    total_questions = progress['total_questions_answered']
+    correct_rate = (progress['total_correct'] / total_questions * 100) if total_questions > 0 else 0
+    avg_time = progress['total_time_spent'] / total_questions if total_questions > 0 else 0
+    study_days = len(sessions)
+    
+    # Category performance
+    category_performance = {}
+    for cat_name, cat_data in progress.get('category_progress', {}).items():
+        total = cat_data['total_answered']
+        correct = cat_data['total_correct']
+        accuracy = (correct / total * 100) if total > 0 else 0
+        
+        category_performance[cat_name] = {
+            "total_answered": total,
+            "correct": correct,
+            "accuracy": accuracy,
+            "current_difficulty": cat_data['current_difficulty']
+        }
+    
+    return UserAnalytics(
+        total_questions=total_questions,
+        correct_rate=correct_rate,
+        average_time_per_question=avg_time,
+        study_days=study_days,
+        current_streak=progress['current_streak'],
+        highest_streak=progress['highest_streak'],
+        category_performance=category_performance
+    )
+
+@api_router.get("/analytics/sessions")
+async def get_study_sessions(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user_id: str = Depends(get_current_user)
+):
+    """Get study sessions"""
+    query = {"user_id": user_id}
+    
+    if start_date:
+        query['date'] = {"$gte": start_date}
+    if end_date:
+        if 'date' in query:
+            query['date']['$lte'] = end_date
+        else:
+            query['date'] = {"$lte": end_date}
+    
+    sessions = await db.study_sessions.find(query, {"_id": 0}).to_list(1000)
+    return sessions
+
+@api_router.get("/analytics/subcategory")
+async def get_subcategory_analytics(user_id: str = Depends(get_current_user)):
+    """Get sub-category performance analytics"""
+    # Get answer history to calculate sub-category performance
+    answers = await db.answer_history.find({"user_id": user_id}, {"_id": 0}).to_list(10000)
+    
+    # Get question details for sub-categories
+    question_ids = [a.get('question_id') for a in answers if a.get('question_id')]
+    questions = await db.questions.find({"id": {"$in": question_ids}}, {"_id": 0}).to_list(10000)
+    
+    # Create question lookup
+    question_lookup = {q['id']: q for q in questions}
+    
+    # Calculate sub-category stats
+    subcategory_stats = {}
+    for answer in answers:
+        q_id = answer.get('question_id')
+        if q_id and q_id in question_lookup:
+            question = question_lookup[q_id]
+            category = question.get('category', 'general')
+            sub_cat = question.get('sub_category') or 'General'
+            key = f"{category}|{sub_cat}"
+            
+            if key not in subcategory_stats:
+                subcategory_stats[key] = {
+                    'category': category,
+                    'sub_category': sub_cat,
+                    'total_answered': 0,
+                    'total_correct': 0,
+                    'accuracy': 0
+                }
+            
+            subcategory_stats[key]['total_answered'] += 1
+            if answer.get('is_correct'):
+                subcategory_stats[key]['total_correct'] += 1
+    
+    # Calculate accuracy for each sub-category
+    for key in subcategory_stats:
+        stats = subcategory_stats[key]
+        if stats['total_answered'] > 0:
+            stats['accuracy'] = round((stats['total_correct'] / stats['total_answered']) * 100, 1)
+    
+    # Convert to list and sort by category then sub_category
+    result = list(subcategory_stats.values())
+    result.sort(key=lambda x: (x['category'], x['sub_category']))
+    
+    return result
+
+# ============================================================================
+# EXAM MODE ROUTES
+# ============================================================================
+
+@api_router.post("/exam/start", response_model=ExamSession)
+async def start_exam(
+    question_count: int = 10,
+    time_limit: int = 60,
+    category: Optional[QuestionCategory] = None,
+    user_id: str = Depends(get_current_user)
+):
+    """Start an exam session"""
+    # Get questions
+    query = {'$or': [{'user_id': None}, {'user_id': user_id}]}
+    if category:
+        query['category'] = category.value
+    
+    questions = await db.questions.find(query, {"_id": 0}).to_list(1000)
+    
+    # Shuffle and select
+    import random
+    random.shuffle(questions)
+    selected = questions[:question_count]
+    
+    # Create exam session
+    exam = ExamSession(
+        user_id=user_id,
+        question_ids=[q['id'] for q in selected],
+        answers={},
+        time_limit=time_limit
+    )
+    
+    exam_dict = exam.model_dump()
+    exam_dict['started_at'] = exam_dict['started_at'].isoformat()
+    
+    await db.exam_sessions.insert_one(exam_dict)
+    
+    return exam
+
+@api_router.post("/exam/{exam_id}/answer")
+async def submit_exam_answer(
+    exam_id: str,
+    question_id: str,
+    answer: int,
+    user_id: str = Depends(get_current_user)
+):
+    """Submit answer for an exam question"""
+    await db.exam_sessions.update_one(
+        {"id": exam_id, "user_id": user_id},
+        {"$set": {f"answers.{question_id}": answer}}
+    )
+    
+    return {"success": True}
+
+@api_router.post("/exam/{exam_id}/complete", response_model=ExamResult)
+async def complete_exam(
+    exam_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Complete exam and get results"""
+    exam = await db.exam_sessions.find_one({"id": exam_id, "user_id": user_id}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    
+    # Get questions
+    questions = await db.questions.find(
+        {"id": {"$in": exam['question_ids']}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Calculate score
+    correct = 0
+    detailed_results = []
+    
+    for q in questions:
+        user_answer = exam['answers'].get(q['id'])
+        is_correct = user_answer == q['correct_answer']
+        if is_correct:
+            correct += 1
+        
+        detailed_results.append({
+            "question_id": q['id'],
+            "question": q['question'],
+            "user_answer": user_answer,
+            "correct_answer": q['correct_answer'],
+            "is_correct": is_correct,
+            "explanation": q['explanation']
+        })
+    
+    total = len(questions)
+    score = int((correct / total) * 100) if total > 0 else 0
+    
+    # Calculate time taken
+    started_at = datetime.fromisoformat(exam['started_at'])
+    time_taken = int((datetime.utcnow() - started_at).total_seconds())
+    
+    # Update exam
+    await db.exam_sessions.update_one(
+        {"id": exam_id},
+        {
+            "$set": {
+                "completed_at": datetime.utcnow().isoformat(),
+                "score": score
+            }
+        }
+    )
+    
+    return ExamResult(
+        score=score,
+        correct=correct,
+        total=total,
+        time_taken=time_taken,
+        detailed_results=detailed_results
+    )
+
+# ============================================================================
+# DATA EXPORT ROUTES
+# ============================================================================
+
+@api_router.post("/export/data")
+async def export_user_data(
+    request: DataExportRequest,
+    user_id: str = Depends(get_current_user)
+):
+    """Export all user data as ZIP file"""
+    # Create ZIP file in memory
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Export questions
+        if request.include_questions:
+            questions = await db.questions.find({"user_id": user_id}, {"_id": 0}).to_list(10000)
+            for q in questions:
+                if isinstance(q.get('created_at'), str):
+                    q['created_at'] = q['created_at']
+            
+            zip_file.writestr(
+                "questions.json",
+                json.dumps(questions, indent=2, default=str)
+            )
+        
+        # Export progress
+        if request.include_progress:
+            progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
+            if progress:
+                zip_file.writestr(
+                    "progress.json",
+                    json.dumps(progress, indent=2, default=str)
+                )
+        
+        # Export sessions
+        if request.include_sessions:
+            sessions = await db.study_sessions.find({"user_id": user_id}, {"_id": 0}).to_list(10000)
+            zip_file.writestr(
+                "sessions.json",
+                json.dumps(sessions, indent=2, default=str)
+            )
+        
+        # Export answer history
+        answers = await db.answer_history.find({"user_id": user_id}, {"_id": 0}).to_list(10000)
+        zip_file.writestr(
+            "answer_history.json",
+            json.dumps(answers, indent=2, default=str)
+        )
+    
+    # Prepare for download
+    zip_buffer.seek(0)
+    
+    return StreamingResponse(
+        io.BytesIO(zip_buffer.read()),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename=medmcq_data_{user_id}.zip"
+        }
+    )
+
+# ============================================================================
+# SAMPLE DATA INITIALIZATION
+# ============================================================================
+
+@api_router.post("/init/sample-data")
+async def initialize_sample_data():
+    """Initialize comprehensive sample questions (for demo purposes)"""
+    # Clear existing sample data
+    await db.questions.delete_many({"source": "sample"})
+    
+    comprehensive_questions = [
+        # Respiratory
+        {"id": "resp-001", "question": "A 65-year-old man with a 40-pack-year smoking history presents with worsening dyspnea and a chronic cough. Pulmonary function tests show a decreased FEV1/FVC ratio, increased total lung capacity, and decreased diffusing capacity. Which of the following is the most likely diagnosis?", "options": ["Asthma", "Chronic bronchitis", "Emphysema", "Bronchiectasis", "Interstitial lung disease"], "correct_answer": 2, "explanation": "The patient's presentation and pulmonary function tests are classic for emphysema. Key findings include: 1) Decreased FEV1/FVC ratio indicating obstructive lung disease, 2) Increased total lung capacity indicating hyperinflation, and 3) Decreased diffusing capacity due to destruction of alveolar walls.", "category": "respiratory", "year": 2, "difficulty": "2", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        {"id": "resp-002", "question": "A 28-year-old woman presents to the emergency department with sudden onset of dyspnea and right-sided pleuritic chest pain. She recently returned from a long international flight. Her vital signs show tachycardia and mild hypoxemia. What is the most appropriate initial diagnostic test?", "options": ["Chest X-ray", "CT pulmonary angiography", "D-dimer", "Ventilation-perfusion scan", "Arterial blood gas"], "correct_answer": 2, "explanation": "Given the clinical suspicion for pulmonary embolism (recent travel, pleuritic chest pain, dyspnea), D-dimer is the most appropriate initial test. A negative D-dimer can rule out PE in low-risk patients. If positive, proceed to CT pulmonary angiography for definitive diagnosis.", "category": "respiratory", "year": 3, "difficulty": "2", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        # Cardiology
+        {"id": "cardio-001", "question": "A 55-year-old woman presents with crushing substernal chest pain that radiates to her left arm. ECG shows ST-segment elevation in leads II, III, and aVF. Which coronary artery is most likely occluded?", "options": ["Left anterior descending artery", "Left circumflex artery", "Right coronary artery", "Left main coronary artery", "Posterior descending artery"], "correct_answer": 2, "explanation": "ST-segment elevation in leads II, III, and aVF indicates an inferior wall myocardial infarction. The right coronary artery (RCA) supplies the inferior wall of the left ventricle in 85% of people.", "category": "cardiology", "year": 3, "difficulty": "3", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        {"id": "cardio-002", "question": "A 45-year-old man with hypertension presents for a routine check-up. His blood pressure is 145/95 mmHg. Which of the following is the most appropriate first-line antihypertensive medication for this patient without other comorbidities?", "options": ["Thiazide diuretic", "Beta-blocker", "Calcium channel blocker", "Alpha-blocker", "ACE inhibitor"], "correct_answer": 0, "explanation": "Thiazide diuretics are recommended as first-line therapy for uncomplicated hypertension according to JNC guidelines. They have been shown to reduce cardiovascular events and are cost-effective.", "category": "cardiology", "year": 2, "difficulty": "1", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        # Neurology
+        {"id": "neuro-001", "question": "A 45-year-old man with chronic alcohol use presents with confusion, ataxia, and nystagmus. Which vitamin deficiency is most likely responsible?", "options": ["Vitamin B1 (Thiamine)", "Vitamin B12", "Vitamin C", "Vitamin D", "Folate"], "correct_answer": 0, "explanation": "Wernicke's encephalopathy, characterized by the triad of confusion, ataxia, and nystagmus, is caused by thiamine (Vitamin B1) deficiency, commonly seen in chronic alcoholics.", "category": "neurology", "year": 2, "difficulty": "2", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        {"id": "neuro-002", "question": "A 72-year-old woman presents with sudden onset of right-sided weakness and inability to speak. CT scan of the head shows no hemorrhage. What is the time window for administering tissue plasminogen activator (tPA)?", "options": ["1.5 hours", "3 hours", "4.5 hours", "6 hours", "12 hours"], "correct_answer": 2, "explanation": "The current guideline for tPA administration in acute ischemic stroke is within 4.5 hours of symptom onset. This represents the therapeutic window where benefits outweigh risks of hemorrhagic transformation.", "category": "neurology", "year": 3, "difficulty": "2", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        # Endocrinology
+        {"id": "endo-001", "question": "A 30-year-old woman presents with headache, palpitations, and sweating episodes. Physical examination reveals a blood pressure of 180/110 mmHg. Which of the following is the most likely diagnosis?", "options": ["Pheochromocytoma", "Cushing syndrome", "Hyperaldosteronism", "Hyperthyroidism", "Essential hypertension"], "correct_answer": 0, "explanation": "The classic triad of headaches, palpitations, and sweating in a hypertensive patient is characteristic of pheochromocytoma. These tumors secrete catecholamines intermittently, leading to paroxysmal symptoms.", "category": "endocrinology", "year": 3, "difficulty": "3", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        {"id": "endo-002", "question": "A 35-year-old woman presents with fatigue, weight gain, and cold intolerance. Laboratory tests show elevated TSH and low free T4. What is the most likely diagnosis?", "options": ["Hyperthyroidism", "Primary hypothyroidism", "Secondary hypothyroidism", "Subclinical hypothyroidism", "Sick euthyroid syndrome"], "correct_answer": 1, "explanation": "Elevated TSH with low free T4 indicates primary hypothyroidism, where the thyroid gland fails to produce adequate thyroid hormone, and the pituitary compensates by increasing TSH secretion.", "category": "endocrinology", "year": 2, "difficulty": "1", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        # Urology
+        {"id": "uro-001", "question": "A 60-year-old man presents with painless hematuria. Urine cytology shows atypical cells. Which of the following is the most likely diagnosis?", "options": ["Renal cell carcinoma", "Bladder cancer", "Prostate cancer", "Kidney stones", "Urinary tract infection"], "correct_answer": 1, "explanation": "Painless hematuria in an older adult is a classic presentation of bladder cancer. Urine cytology showing atypical cells further supports this diagnosis.", "category": "urology", "year": 3, "difficulty": "2", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+        {"id": "uro-002", "question": "A 25-year-old man presents with acute onset of severe left flank pain radiating to the groin with nausea. Urinalysis shows microscopic hematuria. What is the most likely diagnosis?", "options": ["Pyelonephritis", "Renal cell carcinoma", "Nephrolithiasis", "Urinary tract infection", "Renal infarction"], "correct_answer": 2, "explanation": "The classic presentation of acute flank pain radiating to the groin with hematuria is characteristic of nephrolithiasis (kidney stones). The pain pattern follows the path of ureteral obstruction.", "category": "urology", "year": 2, "difficulty": "1", "source": "sample", "user_id": None, "verified": True, "created_at": datetime.utcnow().isoformat()},
+    ]
+    
+    await db.questions.insert_many(comprehensive_questions)
+    return {"message": f"Initialized {len(comprehensive_questions)} sample questions"}
+
+# ============================================================================
+# BASIC ROUTES
+# ============================================================================
+
+@api_router.get("/")
+async def root():
+    return {"message": "MedMCQ API - Medical Student Learning Platform"}
+
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+# ============================================================================
+# STRIPE PAYMENT ROUTES
+# ============================================================================
+
+from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
+from fastapi import Request
+import uuid
+
+# Define subscription packages (amounts in dollars)
+SUBSCRIPTION_PACKAGES = {
+    "weekly": {"name": "Weekly", "amount": 9.99, "period": "week"},
+    "monthly": {"name": "Monthly", "amount": 29.99, "period": "month"},
+    "quarterly": {"name": "Quarterly", "amount": 79.99, "period": "3 months"},
+    "annual": {"name": "Annual", "amount": 249.99, "period": "year"}
+}
+
+@api_router.post("/payments/create-checkout")
+async def create_checkout_session(
+    request: Request,
+    package_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Create a Stripe checkout session for subscription"""
+    # Validate package
+    if package_id not in SUBSCRIPTION_PACKAGES:
+        raise HTTPException(status_code=400, detail="Invalid subscription package")
+    
+    package = SUBSCRIPTION_PACKAGES[package_id]
+    
+    # Get Stripe API key
+    stripe_api_key = os.environ.get('STRIPE_API_KEY')
+    if not stripe_api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    
+    # Get host URL from request
+    host_url = str(request.base_url).rstrip('/')
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    
+    # Initialize Stripe checkout
+    stripe_checkout = StripeCheckout(api_key=stripe_api_key, webhook_url=webhook_url)
+    
+    # Build success and cancel URLs
+    # Use origin from headers for frontend URL
+    origin = request.headers.get('origin', host_url)
+    success_url = f"{origin}/subscription?session_id={{CHECKOUT_SESSION_ID}}&status=success"
+    cancel_url = f"{origin}/subscription?status=cancelled"
+    
+    # Create checkout session request
+    checkout_request = CheckoutSessionRequest(
+        amount=float(package['amount']),
+        currency="aud",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "user_id": user_id,
+            "package_id": package_id,
+            "package_name": package['name']
+        }
+    )
+    
+    try:
+        # Create checkout session
+        session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
+        
+        # Create payment transaction record
+        transaction = {
+            "id": str(uuid.uuid4()),
+            "session_id": session.session_id,
+            "user_id": user_id,
+            "package_id": package_id,
+            "package_name": package['name'],
+            "amount": package['amount'],
+            "currency": "aud",
+            "status": "pending",
+            "payment_status": "initiated",
+            "created_at": datetime.utcnow().isoformat()
+        }
+        await db.payment_transactions.insert_one(transaction)
+        
+        return {
+            "checkout_url": session.url,
+            "session_id": session.session_id
+        }
+    except Exception as e:
+        logger.error(f"Error creating checkout session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/payments/status/{session_id}")
+async def get_payment_status(
+    session_id: str,
+    request: Request,
+    user_id: str = Depends(get_current_user)
+):
+    """Get payment status for a checkout session"""
+    stripe_api_key = os.environ.get('STRIPE_API_KEY')
+    if not stripe_api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    
+    host_url = str(request.base_url).rstrip('/')
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    
+    stripe_checkout = StripeCheckout(api_key=stripe_api_key, webhook_url=webhook_url)
+    
+    try:
+        status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
+        
+        # Update transaction in database
+        update_data = {
+            "status": status.status,
+            "payment_status": status.payment_status,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        # If payment is successful, update user subscription
+        if status.payment_status == "paid":
+            # Check if already processed
+            existing = await db.payment_transactions.find_one({
+                "session_id": session_id,
+                "payment_status": "paid"
+            })
+            
+            if not existing:
+                # Update transaction
+                await db.payment_transactions.update_one(
+                    {"session_id": session_id},
+                    {"$set": update_data}
+                )
+                
+                # Get transaction to find package
+                transaction = await db.payment_transactions.find_one({"session_id": session_id})
+                if transaction:
+                    package_id = transaction.get('package_id', 'monthly')
+                    package = SUBSCRIPTION_PACKAGES.get(package_id, SUBSCRIPTION_PACKAGES['monthly'])
+                    
+                    # Calculate subscription end date
+                    if package_id == 'weekly':
+                        end_date = datetime.utcnow() + timedelta(days=7)
+                    elif package_id == 'monthly':
+                        end_date = datetime.utcnow() + timedelta(days=30)
+                    elif package_id == 'quarterly':
+                        end_date = datetime.utcnow() + timedelta(days=90)
+                    else:  # annual
+                        end_date = datetime.utcnow() + timedelta(days=365)
+                    
+                    # Update user subscription
+                    await db.users.update_one(
+                        {"id": user_id},
+                        {"$set": {
+                            "subscription_status": "active",
+                            "subscription_plan": package_id,
+                            "subscription_start": datetime.utcnow().isoformat(),
+                            "subscription_end": end_date.isoformat()
+                        }}
+                    )
+        else:
+            await db.payment_transactions.update_one(
+                {"session_id": session_id},
+                {"$set": update_data}
+            )
+        
+        return {
+            "status": status.status,
+            "payment_status": status.payment_status,
+            "amount_total": status.amount_total,
+            "currency": status.currency
+        }
+    except Exception as e:
+        logger.error(f"Error getting payment status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhooks"""
+    stripe_api_key = os.environ.get('STRIPE_API_KEY')
+    if not stripe_api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    
+    host_url = str(request.base_url).rstrip('/')
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    
+    stripe_checkout = StripeCheckout(api_key=stripe_api_key, webhook_url=webhook_url)
+    
+    try:
+        body = await request.body()
+        signature = request.headers.get("Stripe-Signature")
+        
+        webhook_response = await stripe_checkout.handle_webhook(body, signature)
+        
+        # Update transaction based on webhook
+        if webhook_response.session_id:
+            await db.payment_transactions.update_one(
+                {"session_id": webhook_response.session_id},
+                {"$set": {
+                    "status": webhook_response.event_type,
+                    "payment_status": webhook_response.payment_status,
+                    "updated_at": datetime.utcnow().isoformat()
+                }}
+            )
+        
+        return {"status": "received"}
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return {"status": "error", "message": str(e)}
+
+@api_router.get("/payments/config")
+async def get_stripe_config():
+    """Get Stripe publishable key for frontend"""
+    publishable_key = os.environ.get('STRIPE_PUBLISHABLE_KEY')
+    return {"publishable_key": publishable_key}
+
+@api_router.get("/user/subscription")
+async def get_user_subscription(user_id: str = Depends(get_current_user)):
+    """Get user's subscription status"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "subscription_status": user.get("subscription_status", "free"),
+        "subscription_plan": user.get("subscription_plan"),
+        "subscription_end": user.get("subscription_end")
+    }
+
+# Include router in app
+app.include_router(api_router)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+@api_router.post("/init/comprehensive-sample-data")
+async def initialize_comprehensive_sample_data():
+    """Initialize comprehensive sample questions for better demo"""
+    # Clear existing sample data
+    await db.questions.delete_many({"source": "sample"})
+    
+    comprehensive_questions = [
+        # Respiratory Questions
+        {
+            "id": "resp-001",
+            "question": "A 65-year-old man with a 40-pack-year smoking history presents with worsening dyspnea and a chronic cough. Pulmonary function tests show a decreased FEV1/FVC ratio, increased total lung capacity, and decreased diffusing capacity. Which of the following is the most likely diagnosis?",
+            "options": ["Asthma", "Chronic bronchitis", "Emphysema", "Bronchiectasis"],
+            "correct_answer": 2,
+            "explanation": "The patient's presentation and pulmonary function tests are classic for emphysema. Key findings include: 1) Decreased FEV1/FVC ratio indicating obstructive lung disease, 2) Increased total lung capacity indicating hyperinflation, and 3) Decreased diffusing capacity due to destruction of alveolar walls.",
+            "category": "respiratory",
+            "year": 2,
+            "difficulty": "2",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        {
+            "id": "resp-002",
+            "question": "A 28-year-old woman presents to the emergency department with sudden onset of dyspnea and right-sided pleuritic chest pain. She recently returned from a long international flight. Her vital signs show tachycardia and mild hypoxemia. What is the most appropriate initial diagnostic test?",
+            "options": ["Chest X-ray", "CT pulmonary angiography", "D-dimer", "Ventilation-perfusion scan"],
+            "correct_answer": 2,
+            "explanation": "Given the clinical suspicion for pulmonary embolism (recent travel, pleuritic chest pain, dyspnea), D-dimer is the most appropriate initial test. A negative D-dimer can rule out PE in low-risk patients. If positive, proceed to CT pulmonary angiography for definitive diagnosis.",
+            "category": "respiratory",
+            "year": 3,
+            "difficulty": "2",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        # Cardiology Questions
+        {
+            "id": "cardio-001",
+            "question": "A 55-year-old woman presents with crushing substernal chest pain that radiates to her left arm. ECG shows ST-segment elevation in leads II, III, and aVF. Which coronary artery is most likely occluded?",
+            "options": ["Left anterior descending artery", "Left circumflex artery", "Right coronary artery", "Left main coronary artery"],
+            "correct_answer": 2,
+            "explanation": "ST-segment elevation in leads II, III, and aVF indicates an inferior wall myocardial infarction. The right coronary artery (RCA) supplies the inferior wall of the left ventricle in 85% of people.",
+            "category": "cardiology",
+            "year": 3,
+            "difficulty": "3",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        {
+            "id": "cardio-002",
+            "question": "A 45-year-old man with hypertension presents for a routine check-up. His blood pressure is 145/95 mmHg. Which of the following is the most appropriate first-line antihypertensive medication for this patient without other comorbidities?",
+            "options": ["Thiazide diuretic", "Beta-blocker", "Calcium channel blocker", "Alpha-blocker"],
+            "correct_answer": 0,
+            "explanation": "Thiazide diuretics are recommended as first-line therapy for uncomplicated hypertension according to JNC guidelines. They have been shown to reduce cardiovascular events and are cost-effective.",
+            "category": "cardiology",
+            "year": 2,
+            "difficulty": "1",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        # Neurology Questions
+        {
+            "id": "neuro-001",
+            "question": "A 45-year-old man with chronic alcohol use presents with confusion, ataxia, and nystagmus. Which vitamin deficiency is most likely responsible?",
+            "options": ["Vitamin B1 (Thiamine)", "Vitamin B12", "Vitamin C", "Vitamin D"],
+            "correct_answer": 0,
+            "explanation": "Wernicke's encephalopathy, characterized by the triad of confusion, ataxia, and nystagmus, is caused by thiamine (Vitamin B1) deficiency, commonly seen in chronic alcoholics.",
+            "category": "neurology",
+            "year": 2,
+            "difficulty": "2",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        {
+            "id": "neuro-002",
+            "question": "A 72-year-old woman presents with sudden onset of right-sided weakness and inability to speak. CT scan of the head shows no hemorrhage. What is the time window for administering tissue plasminogen activator (tPA)?",
+            "options": ["1.5 hours", "3 hours", "4.5 hours", "6 hours"],
+            "correct_answer": 2,
+            "explanation": "The current guideline for tPA administration in acute ischemic stroke is within 4.5 hours of symptom onset. This represents the therapeutic window where benefits outweigh risks of hemorrhagic transformation.",
+            "category": "neurology",
+            "year": 3,
+            "difficulty": "2",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        # Endocrinology Questions
+        {
+            "id": "endo-001",
+            "question": "A 30-year-old woman presents with headache, palpitations, and sweating episodes. Physical examination reveals a blood pressure of 180/110 mmHg. Which of the following is the most likely diagnosis?",
+            "options": ["Pheochromocytoma", "Cushing syndrome", "Hyperaldosteronism", "Hyperthyroidism"],
+            "correct_answer": 0,
+            "explanation": "The classic triad of headaches, palpitations, and sweating in a hypertensive patient is characteristic of pheochromocytoma. These tumors secrete catecholamines intermittently, leading to paroxysmal symptoms.",
+            "category": "endocrinology",
+            "year": 3,
+            "difficulty": "3",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        {
+            "id": "endo-002",
+            "question": "A 35-year-old woman presents with fatigue, weight gain, and cold intolerance. Laboratory tests show elevated TSH and low free T4. What is the most likely diagnosis?",
+            "options": ["Hyperthyroidism", "Primary hypothyroidism", "Secondary hypothyroidism", "Subclinical hypothyroidism"],
+            "correct_answer": 1,
+            "explanation": "Elevated TSH with low free T4 indicates primary hypothyroidism, where the thyroid gland fails to produce adequate thyroid hormone, and the pituitary compensates by increasing TSH secretion.",
+            "category": "endocrinology",
+            "year": 2,
+            "difficulty": "1",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        # Urology Questions
+        {
+            "id": "uro-001",
+            "question": "A 60-year-old man presents with painless hematuria. Urine cytology shows atypical cells. Which of the following is the most likely diagnosis?",
+            "options": ["Renal cell carcinoma", "Bladder cancer", "Prostate cancer", "Kidney stones"],
+            "correct_answer": 1,
+            "explanation": "Painless hematuria in an older adult is a classic presentation of bladder cancer. Urine cytology showing atypical cells further supports this diagnosis.",
+            "category": "urology",
+            "year": 3,
+            "difficulty": "2",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        {
+            "id": "uro-002",
+            "question": "A 25-year-old man presents with acute onset of severe left flank pain radiating to the groin with nausea. Urinalysis shows microscopic hematuria. What is the most likely diagnosis?",
+            "options": ["Pyelonephritis", "Renal cell carcinoma", "Nephrolithiasis", "Urinary tract infection"],
+            "correct_answer": 2,
+            "explanation": "The classic presentation of acute flank pain radiating to the groin with hematuria is characteristic of nephrolithiasis (kidney stones). The pain pattern follows the path of ureteral obstruction.",
+            "category": "urology",
+            "year": 2,
+            "difficulty": "1",
+            "source": "sample",
+            "user_id": None,
+            "verified": True,
+            "created_at": datetime.utcnow().isoformat()
+        },
+    ]
+    
+    await db.questions.insert_many(comprehensive_questions)
+    
+    return {"message": f"Initialized {len(comprehensive_questions)} comprehensive sample questions"}
