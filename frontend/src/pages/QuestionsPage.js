@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { getQuestions, submitAnswer } from '../api/endpoints';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const QuestionsPage = () => {
   const [questions, setQuestions] = useState([]);
@@ -8,6 +11,7 @@ const QuestionsPage = () => {
   const [answered, setAnswered] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [unlockStatus, setUnlockStatus] = useState(null);
   
   // Initialize stats from localStorage to persist across navigation
   const [stats, setStats] = useState(() => {
@@ -41,6 +45,24 @@ const QuestionsPage = () => {
     '3': 'Proficient',
     '4': 'Advanced'
   };
+
+  // Fetch unlock status on mount
+  useEffect(() => {
+    const fetchUnlockStatus = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+        
+        const response = await axios.get(`${BACKEND_URL}/api/unlock-status`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUnlockStatus(response.data);
+      } catch (error) {
+        console.error('Error fetching unlock status:', error);
+      }
+    };
+    fetchUnlockStatus();
+  }, []);
 
   // Save stats to localStorage whenever they change (but not on first render)
   useEffect(() => {
