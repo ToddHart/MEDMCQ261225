@@ -136,6 +136,42 @@ async def get_current_user_info(user_id: str = Depends(get_current_user)):
     return User(**user)
 
 # ============================================================================
+# HELPER FUNCTIONS FOR PRIORITY QUESTION SYSTEM
+# ============================================================================
+
+import random
+
+def randomize_answer_options(question_dict):
+    """
+    Randomize the order of answer options and return the new correct answer index.
+    Returns: (randomized_options, new_correct_index, original_to_new_mapping)
+    """
+    options = question_dict.get('options', [])
+    correct_answer = question_dict.get('correct_answer', 0)
+    
+    # Create list of (original_index, option_text)
+    indexed_options = list(enumerate(options))
+    
+    # Shuffle the options
+    random.shuffle(indexed_options)
+    
+    # Extract the new order
+    new_options = [opt for _, opt in indexed_options]
+    original_indices = [idx for idx, _ in indexed_options]
+    
+    # Find new correct answer index
+    new_correct_index = original_indices.index(correct_answer)
+    
+    return new_options, new_correct_index, original_indices
+
+async def get_user_unlock_status(user_id: str):
+    """Check if user has unlocked the full question bank."""
+    progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
+    if not progress:
+        return False, 0
+    return progress.get('full_bank_unlocked', False), progress.get('qualifying_sessions_completed', 0)
+
+# ============================================================================
 # QUESTION ROUTES
 # ============================================================================
 
@@ -148,7 +184,14 @@ async def get_questions(
     limit: int = 50,
     user_id: str = Depends(get_current_user)
 ):
-    """Get questions with optional filters - randomized order"""
+    """Get questions with optional filters - randomized order with randomized answers.
+    
+    PRIORITY SYSTEM: Until user completes 3 qualifying sessions (85%+ on 50+ questions),
+    only UNE priority questions are served.
+    """
+    # Check user's unlock status
+    full_bank_unlocked, qualifying_sessions = await get_user_unlock_status(user_id)
+    
     query = {}
     
     if category:
@@ -158,43 +201,53 @@ async def get_questions(
     if year:
         query['year'] = year
     
-    # Source filtering
-    if source and source != 'all':
-        if source == 'imported':
-            # Only user's personal imported questions
-            query['user_id'] = user_id
-            query['source'] = 'imported'
-        elif source == 'shared':
-            # Global shared questions
-            query['source'] = 'shared'
-        elif source == 'sample':
-            # Sample questions
-            query['source'] = 'sample'
+    # PRIORITY SYSTEM: If not unlocked, only serve UNE priority questions
+    if not full_bank_unlocked:
+        query['source'] = 'une_priority'
     else:
-        # Get both global and user's personal questions
-        query['$or'] = [
-            {'user_id': None},  # Global questions (shared + sample)
-            {'user_id': user_id}  # User's personal questions
-        ]
+        # Source filtering for unlocked users
+        if source and source != 'all':
+            if source == 'imported':
+                query['user_id'] = user_id
+                query['source'] = 'imported'
+            elif source == 'shared':
+                query['source'] = 'shared'
+            elif source == 'sample':
+                query['source'] = 'sample'
+            elif source == 'une_priority':
+                query['source'] = 'une_priority'
+        else:
+            # Get both global and user's personal questions (all sources)
+            query['$or'] = [
+                {'user_id': None},  # Global questions (all sources)
+                {'user_id': user_id}  # User's personal questions
+            ]
     
     # Exclude quarantined questions
     query['quarantined'] = {'$ne': True}
     
-    questions = await db.questions.find(query, {"_id": 0}).to_list(limit * 2)
+    questions = await db.questions.find(query, {"_id": 0}).to_list(limit * 3)
     
     # Convert datetime strings
     for q in questions:
         if isinstance(q.get('created_at'), str):
             q['created_at'] = datetime.fromisoformat(q['created_at'])
     
-    # Randomize order
-    import random
+    # Randomize question order
     random.shuffle(questions)
     
     # Limit results
     questions = questions[:limit]
     
-    return [Question(**q) for q in questions]
+    # Randomize answer options for each question
+    randomized_questions = []
+    for q in questions:
+        new_options, new_correct, _ = randomize_answer_options(q)
+        q['options'] = new_options
+        q['correct_answer'] = new_correct
+        randomized_questions.append(Question(**q))
+    
+    return randomized_questions
 
 @api_router.get("/questions/adaptive", response_model=List[Question])
 async def get_adaptive_questions(
