@@ -341,6 +341,30 @@ const QuestionsPage = () => {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
+        {/* Unlock Status Banner */}
+        {unlockStatus && (
+          <div className={`rounded-lg p-3 mb-4 ${
+            unlockStatus.full_bank_unlocked 
+              ? 'bg-green-100 border border-green-300' 
+              : 'bg-blue-100 border border-blue-300'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className={`font-semibold ${unlockStatus.full_bank_unlocked ? 'text-green-800' : 'text-blue-800'}`}>
+                  {unlockStatus.full_bank_unlocked 
+                    ? '🎉 Full Question Bank Unlocked!' 
+                    : `🔒 Priority Questions Only - ${unlockStatus.qualifying_sessions_completed}/3 qualifying sessions completed`}
+                </span>
+              </div>
+              {!unlockStatus.full_bank_unlocked && (
+                <a href="/exam" className="text-sm text-blue-600 hover:underline font-medium">
+                  Take Exam to Qualify →
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           {/* Sidebar - Aligned to bottom */}
           <div className="lg:col-span-1">
