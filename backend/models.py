@@ -47,6 +47,11 @@ class QuestionCategory(str, Enum):
     SURGERY = "surgery"
     MEDICINE = "medicine"
     GENERAL = "general"
+    GENERAL_MEDICINE = "general medicine"
+    INFECTIOUS_DISEASE = "infectious disease"
+    RHEUMATOLOGY = "rheumatology"
+    NEPHROLOGY = "nephrology"
+    COMMUNITY_MEDICINE = "community medicine"
 
 # User Models
 class UserBase(BaseModel):
