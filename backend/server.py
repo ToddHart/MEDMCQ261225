@@ -1263,14 +1263,17 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 # ============================================================================
-# STRIPE PAYMENT ROUTES
+# STRIPE PAYMENT ROUTES (DISABLED)
 # ============================================================================
 
-from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
+# Payment gateway is temporarily disabled
+# Uncomment when ready to enable payments
+
+# from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 from fastapi import Request
 import uuid
 
-# Define subscription packages (amounts in dollars)
+# Define subscription packages (amounts in dollars) - kept for reference
 SUBSCRIPTION_PACKAGES = {
     "weekly": {"name": "Weekly", "amount": 9.99, "period": "week"},
     "monthly": {"name": "Monthly", "amount": 29.99, "period": "month"},
@@ -1284,70 +1287,11 @@ async def create_checkout_session(
     package_id: str,
     user_id: str = Depends(get_current_user)
 ):
-    """Create a Stripe checkout session for subscription"""
-    # Validate package
-    if package_id not in SUBSCRIPTION_PACKAGES:
-        raise HTTPException(status_code=400, detail="Invalid subscription package")
-    
-    package = SUBSCRIPTION_PACKAGES[package_id]
-    
-    # Get Stripe API key
-    stripe_api_key = os.environ.get('STRIPE_API_KEY')
-    if not stripe_api_key:
-        raise HTTPException(status_code=500, detail="Stripe not configured")
-    
-    # Get host URL from request
-    host_url = str(request.base_url).rstrip('/')
-    webhook_url = f"{host_url}/api/webhook/stripe"
-    
-    # Initialize Stripe checkout
-    stripe_checkout = StripeCheckout(api_key=stripe_api_key, webhook_url=webhook_url)
-    
-    # Build success and cancel URLs
-    # Use origin from headers for frontend URL
-    origin = request.headers.get('origin', host_url)
-    success_url = f"{origin}/subscription?session_id={{CHECKOUT_SESSION_ID}}&status=success"
-    cancel_url = f"{origin}/subscription?status=cancelled"
-    
-    # Create checkout session request
-    checkout_request = CheckoutSessionRequest(
-        amount=float(package['amount']),
-        currency="aud",
-        success_url=success_url,
-        cancel_url=cancel_url,
-        metadata={
-            "user_id": user_id,
-            "package_id": package_id,
-            "package_name": package['name']
-        }
+    """Create a Stripe checkout session for subscription - DISABLED"""
+    raise HTTPException(
+        status_code=503,
+        detail="Payment system is temporarily disabled. Please check back later."
     )
-    
-    try:
-        # Create checkout session
-        session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
-        
-        # Create payment transaction record
-        transaction = {
-            "id": str(uuid.uuid4()),
-            "session_id": session.session_id,
-            "user_id": user_id,
-            "package_id": package_id,
-            "package_name": package['name'],
-            "amount": package['amount'],
-            "currency": "aud",
-            "status": "pending",
-            "payment_status": "initiated",
-            "created_at": datetime.utcnow().isoformat()
-        }
-        await db.payment_transactions.insert_one(transaction)
-        
-        return {
-            "checkout_url": session.url,
-            "session_id": session.session_id
-        }
-    except Exception as e:
-        logger.error(f"Error creating checkout session: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/payments/status/{session_id}")
 async def get_payment_status(
