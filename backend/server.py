@@ -255,7 +255,13 @@ async def get_adaptive_questions(
     count: int = 10,
     user_id: str = Depends(get_current_user)
 ):
-    """Get questions adapted to user's current level"""
+    """Get questions adapted to user's current level with randomized answers.
+    
+    PRIORITY SYSTEM: Until user completes 3 qualifying sessions, only UNE questions.
+    """
+    # Check user's unlock status
+    full_bank_unlocked, _ = await get_user_unlock_status(user_id)
+    
     # Get user progress
     progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
     if not progress:
@@ -266,8 +272,12 @@ async def get_adaptive_questions(
     
     progress_obj = UserProgress(**progress)
     
-    # Get all available questions
-    query = {'$or': [{'user_id': None}, {'user_id': user_id}]}
+    # Build query based on unlock status
+    if not full_bank_unlocked:
+        query = {'source': 'une_priority'}
+    else:
+        query = {'$or': [{'user_id': None}, {'user_id': user_id}]}
+    
     if category:
         query['category'] = category.value
         
@@ -294,18 +304,26 @@ async def get_adaptive_questions(
     
     # If adaptive selection returns nothing (new user), return random easy questions
     if len(selected) == 0:
-        import random
         # Filter for easy questions or just shuffle all
         easy_questions = [q for q in questions_obj if q.difficulty == DifficultyLevel.EASY]
         if len(easy_questions) > 0:
             random.shuffle(easy_questions)
-            return easy_questions[:count]
+            selected = easy_questions[:count]
         else:
             # No easy questions, just return random selection
             random.shuffle(questions_obj)
-            return questions_obj[:count]
+            selected = questions_obj[:count]
     
-    return selected
+    # Randomize answer options for each question
+    randomized_questions = []
+    for q in selected:
+        q_dict = q.model_dump()
+        new_options, new_correct, _ = randomize_answer_options(q_dict)
+        q_dict['options'] = new_options
+        q_dict['correct_answer'] = new_correct
+        randomized_questions.append(Question(**q_dict))
+    
+    return randomized_questions
 
 @api_router.post("/questions/answer")
 async def submit_answer(
