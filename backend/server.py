@@ -785,30 +785,50 @@ async def get_subcategory_analytics(user_id: str = Depends(get_current_user)):
 
 @api_router.post("/exam/start", response_model=ExamSession)
 async def start_exam(
-    question_count: int = 10,
+    question_count: int = 50,
     time_limit: int = 60,
     category: Optional[QuestionCategory] = None,
     user_id: str = Depends(get_current_user)
 ):
-    """Start an exam session"""
-    # Get questions
-    query = {'$or': [{'user_id': None}, {'user_id': user_id}]}
+    """Start an exam session with randomized questions and answers.
+    
+    PRIORITY SYSTEM: Until unlocked, only UNE questions are available.
+    Minimum 50 questions required for qualifying sessions.
+    """
+    # Check user's unlock status
+    full_bank_unlocked, _ = await get_user_unlock_status(user_id)
+    
+    # Build query based on unlock status
+    if not full_bank_unlocked:
+        query = {'source': 'une_priority', 'quarantined': {'$ne': True}}
+    else:
+        query = {'$or': [{'user_id': None}, {'user_id': user_id}], 'quarantined': {'$ne': True}}
+    
     if category:
         query['category'] = category.value
     
-    questions = await db.questions.find(query, {"_id": 0}).to_list(1000)
+    questions = await db.questions.find(query, {"_id": 0}).to_list(5000)
     
-    # Shuffle and select
-    import random
+    # Shuffle questions
     random.shuffle(questions)
     selected = questions[:question_count]
+    
+    # Randomize answer options and store mappings
+    answer_mappings = {}
+    for q in selected:
+        new_options, new_correct, original_indices = randomize_answer_options(q)
+        q['options'] = new_options
+        q['correct_answer'] = new_correct
+        answer_mappings[q['id']] = original_indices
     
     # Create exam session
     exam = ExamSession(
         user_id=user_id,
         question_ids=[q['id'] for q in selected],
         answers={},
-        time_limit=time_limit
+        time_limit=time_limit,
+        answer_mappings=answer_mappings,
+        question_count=len(selected)
     )
     
     exam_dict = exam.model_dump()
@@ -817,6 +837,45 @@ async def start_exam(
     await db.exam_sessions.insert_one(exam_dict)
     
     return exam
+
+@api_router.get("/exam/{exam_id}/questions")
+async def get_exam_questions(
+    exam_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Get questions for an exam session with randomized answers."""
+    exam = await db.exam_sessions.find_one({"id": exam_id, "user_id": user_id}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    
+    # Get questions
+    questions = await db.questions.find(
+        {"id": {"$in": exam['question_ids']}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Apply the same answer randomization stored in the exam session
+    answer_mappings = exam.get('answer_mappings', {})
+    
+    randomized_questions = []
+    for q in questions:
+        if isinstance(q.get('created_at'), str):
+            q['created_at'] = datetime.fromisoformat(q['created_at'])
+        
+        # Apply stored randomization or create new one
+        if q['id'] in answer_mappings:
+            original_indices = answer_mappings[q['id']]
+            original_options = q['options']
+            q['options'] = [original_options[i] for i in original_indices]
+            q['correct_answer'] = original_indices.index(q['correct_answer'])
+        
+        randomized_questions.append(q)
+    
+    # Sort by the order in question_ids
+    question_order = {qid: idx for idx, qid in enumerate(exam['question_ids'])}
+    randomized_questions.sort(key=lambda x: question_order.get(x['id'], 999))
+    
+    return randomized_questions
 
 @api_router.post("/exam/{exam_id}/answer")
 async def submit_exam_answer(
@@ -838,7 +897,7 @@ async def complete_exam(
     exam_id: str,
     user_id: str = Depends(get_current_user)
 ):
-    """Complete exam and get results"""
+    """Complete exam and get results. Check for qualifying session."""
     exam = await db.exam_sessions.find_one({"id": exam_id, "user_id": user_id}, {"_id": 0})
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
@@ -849,13 +908,24 @@ async def complete_exam(
         {"_id": 0}
     ).to_list(1000)
     
+    # Get answer mappings for correct answer calculation
+    answer_mappings = exam.get('answer_mappings', {})
+    
     # Calculate score
     correct = 0
     detailed_results = []
     
     for q in questions:
         user_answer = exam['answers'].get(q['id'])
-        is_correct = user_answer == q['correct_answer']
+        
+        # Determine correct answer based on randomization
+        if q['id'] in answer_mappings:
+            original_indices = answer_mappings[q['id']]
+            correct_answer_in_randomized = original_indices.index(q['correct_answer'])
+        else:
+            correct_answer_in_randomized = q['correct_answer']
+        
+        is_correct = user_answer == correct_answer_in_randomized
         if is_correct:
             correct += 1
         
@@ -863,7 +933,7 @@ async def complete_exam(
             "question_id": q['id'],
             "question": q['question'],
             "user_answer": user_answer,
-            "correct_answer": q['correct_answer'],
+            "correct_answer": correct_answer_in_randomized,
             "is_correct": is_correct,
             "explanation": q['explanation']
         })
@@ -875,24 +945,62 @@ async def complete_exam(
     started_at = datetime.fromisoformat(exam['started_at'])
     time_taken = int((datetime.utcnow() - started_at).total_seconds())
     
+    # Check for qualifying session (85%+ on 50+ questions)
+    is_qualifying = False
+    qualifying_message = None
+    
+    if total >= 50 and score >= 85:
+        is_qualifying = True
+        
+        # Update user progress - increment qualifying sessions
+        progress = await db.user_progress.find_one({"user_id": user_id}, {"_id": 0})
+        current_qualifying = progress.get('qualifying_sessions_completed', 0) if progress else 0
+        new_qualifying = current_qualifying + 1
+        
+        update_data = {
+            "qualifying_sessions_completed": new_qualifying
+        }
+        
+        # Check if this unlocks the full bank (3 qualifying sessions)
+        if new_qualifying >= 3:
+            update_data['full_bank_unlocked'] = True
+            qualifying_message = "🎉 Congratulations! You've completed 3 qualifying sessions and unlocked the FULL question bank!"
+        else:
+            remaining = 3 - new_qualifying
+            qualifying_message = f"✅ Qualifying session completed! {remaining} more qualifying session(s) needed to unlock the full question bank."
+        
+        await db.user_progress.update_one(
+            {"user_id": user_id},
+            {"$set": update_data},
+            upsert=True
+        )
+    
     # Update exam
     await db.exam_sessions.update_one(
         {"id": exam_id},
         {
             "$set": {
                 "completed_at": datetime.utcnow().isoformat(),
-                "score": score
+                "score": score,
+                "is_qualifying_session": is_qualifying
             }
         }
     )
     
-    return ExamResult(
+    result = ExamResult(
         score=score,
         correct=correct,
         total=total,
         time_taken=time_taken,
         detailed_results=detailed_results
     )
+    
+    # Add qualifying info to response
+    return {
+        **result.model_dump(),
+        "is_qualifying_session": is_qualifying,
+        "qualifying_message": qualifying_message
+    }
 
 # ============================================================================
 # DATA EXPORT ROUTES
