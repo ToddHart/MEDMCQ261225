@@ -138,6 +138,9 @@ class UserProgress(BaseModel):
     current_streak: int = 0
     total_time_spent: int = 0  # seconds
     last_activity: datetime = Field(default_factory=datetime.utcnow)
+    # UNE Priority System - Track qualifying sessions
+    qualifying_sessions_completed: int = 0  # Sessions with 85%+ on 50+ questions
+    full_bank_unlocked: bool = False  # True after 3 qualifying sessions
 
 # Study Session Models
 class StudySession(BaseModel):
