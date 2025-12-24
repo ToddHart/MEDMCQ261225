@@ -29,6 +29,7 @@ export const getStudySessions = (params) => api.get('/analytics/sessions', { par
 
 // Exam Mode
 export const startExam = (data) => api.post('/exam/start', null, { params: data });
+export const getExamQuestions = (examId) => api.get(`/exam/${examId}/questions`);
 export const submitExamAnswer = (examId, data) => api.post(`/exam/${examId}/answer`, null, { params: data });
 export const completeExam = (examId) => api.post(`/exam/${examId}/complete`);
 
@@ -38,3 +39,8 @@ export const exportData = (data) =>
 
 // Sample Data
 export const initSampleData = () => api.post('/init/sample-data');
+
+// UNE Priority System
+export const getUnlockStatus = () => api.get('/unlock-status');
+export const getQuestionBankStats = () => api.get('/question-bank-stats');
+export const initUNEQuestions = () => api.post('/init/une-questions');
