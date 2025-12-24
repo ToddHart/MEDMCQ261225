@@ -194,6 +194,10 @@ class ExamSession(BaseModel):
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
     score: Optional[int] = None
+    # Track original answer mappings for randomized options
+    answer_mappings: Dict[str, List[int]] = {}  # question_id -> list of original indices in display order
+    question_count: int = 0  # Total questions in session
+    is_qualifying_session: bool = False  # Whether this session counted toward unlock
 
 class ExamResult(BaseModel):
     score: int
