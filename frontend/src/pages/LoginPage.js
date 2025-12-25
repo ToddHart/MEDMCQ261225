@@ -136,9 +136,6 @@ const LoginPage = () => {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>Demo credentials: demo@medmcq.com / demo123</p>
-          </div>
         </div>
       </div>
     </div>
