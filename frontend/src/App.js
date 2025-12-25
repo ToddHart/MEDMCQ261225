@@ -13,6 +13,7 @@ import AIPage from './pages/AIPage';
 import ImportPage from './pages/ImportPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import ContactPage from './pages/ContactPage';
+import AdminPage from './pages/AdminPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -31,6 +32,32 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
+// Admin Route Component
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, loading, user } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!user?.is_admin) {
+    return <Navigate to="/" replace />;
   }
 
   return children;
