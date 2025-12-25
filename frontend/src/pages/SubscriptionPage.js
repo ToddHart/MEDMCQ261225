@@ -10,6 +10,11 @@ const SubscriptionPage = () => {
   const [subscription, setSubscription] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
 
+  // AI limits based on subscription cost (50% of subscription goes to AI)
+  // Weekly $9.99 -> ~$5 AI budget -> ~3 uses/day
+  // Monthly $29.99 -> ~$15 AI budget -> ~10 uses/day  
+  // Quarterly $79.99 -> ~$40 AI budget -> ~15 uses/day
+  // Annual $249.99 -> ~$125 AI budget -> ~25 uses/day
   const plans = [
     {
       id: 'weekly',
@@ -40,7 +45,7 @@ const SubscriptionPage = () => {
         { text: 'Basic & Advanced Analytics', included: true },
         { text: 'Exam Mode', included: true },
         { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (5 uses/day)', included: true, highlight: true },
+        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
         { text: '500MB Private Storage', included: true, highlight: true },
         { text: 'Study Calendar', included: true },
         { text: 'Progress Reports', included: true },
@@ -58,7 +63,7 @@ const SubscriptionPage = () => {
         { text: 'Full Analytics Suite', included: true },
         { text: 'Exam Mode + Custom Exams', included: true },
         { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (20 uses/day)', included: true, highlight: true },
+        { text: 'AI Generation (15 uses/day)', included: true, highlight: true },
         { text: '2GB Private Storage', included: true, highlight: true },
         { text: 'Study Calendar & Tracking', included: true },
         { text: 'Detailed Progress Reports', included: true },
@@ -78,13 +83,11 @@ const SubscriptionPage = () => {
         { text: 'Full Analytics Suite', included: true },
         { text: 'Unlimited Exam Mode', included: true },
         { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (Unlimited)', included: true, highlight: true },
+        { text: 'AI Generation (25 uses/day)', included: true, highlight: true },
         { text: '5GB Private Storage', included: true, highlight: true },
         { text: 'Advanced AI Features', included: true, highlight: true },
         { text: 'Study Calendar & Insights', included: true },
         { text: 'Priority Support 24/7', included: true },
-        { text: '2 Hours 1-on-1 Tutoring', included: true },
-        { text: 'Career Counseling', included: true },
       ],
     },
   ];
@@ -187,14 +190,25 @@ const SubscriptionPage = () => {
           </div>
         )}
 
+        {/* Payments Disabled Notice */}
+        {subscription?.payments_disabled && (
+          <div className="mb-6 p-4 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-lg">
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">⚠</span>
+              <span className="font-medium">Payment system is temporarily disabled. Please check back later or contact support.</span>
+            </div>
+          </div>
+        )}
+
         {/* Current Subscription Status */}
-        {subscription && subscription.subscription_status === 'active' && (
+        {subscription && (subscription.subscription_status === 'active' || subscription.subscription_status === 'free_grant') && (
           <div className="mb-6 p-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold">Active Subscription</h3>
                 <p className="text-green-100">
                   {subscription.subscription_plan?.charAt(0).toUpperCase() + subscription.subscription_plan?.slice(1)} Plan
+                  {subscription.subscription_status === 'free_grant' && ' (Free Grant)'}
                   {subscription.subscription_end && ` • Expires: ${new Date(subscription.subscription_end).toLocaleDateString()}`}
                 </p>
               </div>
@@ -278,7 +292,7 @@ const SubscriptionPage = () => {
 
                 <button
                   onClick={() => handleSubscribe(plan.id)}
-                  disabled={loading || (subscription?.subscription_status === 'active' && subscription?.subscription_plan === plan.id)}
+                  disabled={loading || subscription?.payments_disabled || (subscription?.subscription_status === 'active' && subscription?.subscription_plan === plan.id)}
                   className={`w-full py-3 rounded-lg font-bold transition-all flex items-center justify-center ${
                     subscription?.subscription_status === 'active' && subscription?.subscription_plan === plan.id
                       ? 'bg-green-100 text-green-700 cursor-not-allowed'
@@ -344,9 +358,9 @@ const SubscriptionPage = () => {
                 <tr className="border-b border-gray-100 bg-purple-50">
                   <td className="py-3 px-4 font-bold">AI Question Generation</td>
                   <td className="text-center py-3 px-4 text-gray-400">✗ None</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">5/day</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">20/day</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">Unlimited</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">10/day</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">15/day</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">25/day</td>
                 </tr>
                 <tr className="border-b border-gray-100 bg-purple-50">
                   <td className="py-3 px-4 font-bold">Private Storage</td>
@@ -392,10 +406,10 @@ const SubscriptionPage = () => {
         </div>
 
         {/* Enterprise Section */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl p-8 text-center">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl p-8 text-center mb-8">
           <h2 className="text-3xl font-bold mb-4">Enterprise & Institutional Plans</h2>
           <p className="text-lg mb-6 text-gray-300">
-            Medical schools, hospitals, and institutions can contact us for customized plans with unlimited AI access and team features.
+            Medical schools, hospitals, and institutions can contact us for customized plans with team features.
           </p>
           <button
             onClick={() => window.location.href = '/contact'}
@@ -403,6 +417,12 @@ const SubscriptionPage = () => {
           >
             Contact for Enterprise Plan
           </button>
+        </div>
+
+        {/* Company Info */}
+        <div className="text-center text-gray-500 text-sm">
+          <p>Ambundita Investments Pty Ltd</p>
+          <p>ABN: Contact for details • Australia</p>
         </div>
       </div>
     </Layout>
