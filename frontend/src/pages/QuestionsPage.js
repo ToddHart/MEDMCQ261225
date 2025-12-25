@@ -5,6 +5,43 @@ import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
+// Available categories
+const CATEGORIES = [
+  { value: 'anatomy', label: 'Anatomy' },
+  { value: 'biochemistry', label: 'Biochemistry' },
+  { value: 'cardiology', label: 'Cardiology' },
+  { value: 'cardiovascular', label: 'Cardiovascular' },
+  { value: 'dermatology', label: 'Dermatology' },
+  { value: 'endocrinology', label: 'Endocrinology' },
+  { value: 'ent', label: 'ENT' },
+  { value: 'gastroenterology', label: 'Gastroenterology' },
+  { value: 'general medicine', label: 'General Medicine' },
+  { value: 'gynecology', label: 'Gynecology' },
+  { value: 'hematology', label: 'Hematology' },
+  { value: 'immunology', label: 'Immunology' },
+  { value: 'infectious disease', label: 'Infectious Disease' },
+  { value: 'medicine', label: 'Medicine' },
+  { value: 'microbiology', label: 'Microbiology' },
+  { value: 'nephrology', label: 'Nephrology' },
+  { value: 'neurology', label: 'Neurology' },
+  { value: 'neuroscience', label: 'Neuroscience' },
+  { value: 'obstetrics', label: 'Obstetrics' },
+  { value: 'ophthalmology', label: 'Ophthalmology' },
+  { value: 'orthopedics', label: 'Orthopedics' },
+  { value: 'pathology', label: 'Pathology' },
+  { value: 'pediatrics', label: 'Pediatrics' },
+  { value: 'pharmacology', label: 'Pharmacology' },
+  { value: 'physiology', label: 'Physiology' },
+  { value: 'psychiatry', label: 'Psychiatry' },
+  { value: 'radiology', label: 'Radiology' },
+  { value: 'renal', label: 'Renal' },
+  { value: 'respiratory', label: 'Respiratory' },
+  { value: 'rheumatology', label: 'Rheumatology' },
+  { value: 'surgery', label: 'Surgery' },
+  { value: 'urology', label: 'Urology' },
+  { value: 'general', label: 'General' },
+];
+
 const QuestionsPage = () => {
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -32,11 +69,12 @@ const QuestionsPage = () => {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [timerInterval, setTimerInterval] = useState(null);
   
-  // Filters
-  const [category, setCategory] = useState('all');
+  // Filters - Multi-category selection
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [difficulty, setDifficulty] = useState('all');
   const [year, setYear] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Complexity tier labels
   const complexityLabels = {
@@ -75,7 +113,7 @@ const QuestionsPage = () => {
 
   useEffect(() => {
     loadQuestions();
-  }, [category, difficulty, year, sourceFilter]);
+  }, [selectedCategories, difficulty, year, sourceFilter]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -93,14 +131,26 @@ const QuestionsPage = () => {
     try {
       const params = { limit: 100 };
       
-      if (category !== 'all') params.category = category;
+      // For single category (backend accepts one at a time for now)
+      // If multiple selected, we fetch more and filter client-side
+      if (selectedCategories.length === 1) {
+        params.category = selectedCategories[0];
+      }
       if (difficulty !== 'all') params.difficulty = difficulty;
       if (year !== 'all') params.year = parseInt(year);
       if (sourceFilter !== 'all') params.source = sourceFilter;
       
       let response = await getQuestions(params);
+      let questionsData = response.data;
       
-      setQuestions(response.data);
+      // Client-side filter for multiple categories
+      if (selectedCategories.length > 1) {
+        questionsData = questionsData.filter(q => 
+          selectedCategories.includes(q.category?.toLowerCase())
+        );
+      }
+      
+      setQuestions(questionsData);
       setCurrentIndex(0);
       setAnswered(false);
       setSelectedAnswer(null);
@@ -109,6 +159,20 @@ const QuestionsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCategoryToggle = (categoryValue) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(categoryValue)) {
+        return prev.filter(c => c !== categoryValue);
+      } else {
+        return [...prev, categoryValue];
+      }
+    });
+  };
+
+  const handleClearCategories = () => {
+    setSelectedCategories([]);
   };
 
   const handleAnswerSelect = async (index) => {
@@ -324,6 +388,12 @@ const QuestionsPage = () => {
             </p>
             <div className="flex justify-center gap-4">
               <button
+                onClick={() => { setSelectedCategories([]); setYear('all'); setDifficulty('all'); }}
+                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Clear Filters
+              </button>
+              <button
                 onClick={() => window.location.href = '/'}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -366,26 +436,37 @@ const QuestionsPage = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          {/* Sidebar - Aligned to bottom */}
+          {/* Sidebar - Filters */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-4 sticky top-20 border-2 border-gray-100 flex flex-col" style={{ minHeight: '470px' }}>
+            <div className="bg-white rounded-lg shadow-lg p-4 sticky top-20 border-2 border-gray-100 flex flex-col">
               <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-blue-500">Filters</h3>
               
               <div className="space-y-3">
+                {/* Source Filter */}
                 <div>
                   <label className="block text-xs font-bold text-gray-800 mb-1">SOURCE</label>
                   <select
                     value={sourceFilter}
                     onChange={(e) => setSourceFilter(e.target.value)}
                     className="w-full px-2 py-2 border-2 border-gray-300 rounded text-xs font-medium bg-gray-50"
+                    disabled={!unlockStatus?.full_bank_unlocked}
                   >
                     <option value="all">All Questions</option>
-                    <option value="shared">Shared Library</option>
-                    <option value="sample">Sample Questions</option>
-                    <option value="imported">My Imported</option>
+                    <option value="une_priority">Priority Bank</option>
+                    {unlockStatus?.full_bank_unlocked && (
+                      <>
+                        <option value="shared">Shared Library</option>
+                        <option value="sample">Sample Questions</option>
+                        <option value="imported">My Imported</option>
+                      </>
+                    )}
                   </select>
+                  {!unlockStatus?.full_bank_unlocked && (
+                    <p className="text-xs text-gray-500 mt-1">Unlock to access more sources</p>
+                  )}
                 </div>
 
+                {/* Year Filter */}
                 <div>
                   <label className="block text-xs font-bold text-gray-800 mb-1">YEAR</label>
                   <select
@@ -393,7 +474,7 @@ const QuestionsPage = () => {
                     onChange={(e) => setYear(e.target.value)}
                     className="w-full px-2 py-2 border-2 border-blue-300 rounded text-xs font-medium bg-gradient-to-r from-blue-50 to-purple-50"
                   >
-                    <option value="all">All</option>
+                    <option value="all">All Years</option>
                     <option value="1">Year 1</option>
                     <option value="2">Year 2</option>
                     <option value="3">Year 3</option>
@@ -403,46 +484,81 @@ const QuestionsPage = () => {
                   </select>
                 </div>
 
+                {/* Multi-Category Selection */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-800 mb-1">SUBJECT</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-2 py-2 border-2 border-green-300 rounded text-xs font-medium bg-green-50"
-                  >
-                    <option value="all">All Subjects</option>
-                    <option value="anatomy">Anatomy</option>
-                    <option value="biochemistry">Biochemistry</option>
-                    <option value="cardiology">Cardiology</option>
-                    <option value="cardiovascular">Cardiovascular</option>
-                    <option value="dermatology">Dermatology</option>
-                    <option value="endocrinology">Endocrinology</option>
-                    <option value="ent">ENT</option>
-                    <option value="gastroenterology">Gastroenterology</option>
-                    <option value="gynecology">Gynecology</option>
-                    <option value="hematology">Hematology</option>
-                    <option value="immunology">Immunology</option>
-                    <option value="medicine">Medicine</option>
-                    <option value="microbiology">Microbiology</option>
-                    <option value="neurology">Neurology</option>
-                    <option value="neuroscience">Neuroscience</option>
-                    <option value="obstetrics">Obstetrics</option>
-                    <option value="ophthalmology">Ophthalmology</option>
-                    <option value="orthopedics">Orthopedics</option>
-                    <option value="pathology">Pathology</option>
-                    <option value="pediatrics">Pediatrics</option>
-                    <option value="pharmacology">Pharmacology</option>
-                    <option value="physiology">Physiology</option>
-                    <option value="psychiatry">Psychiatry</option>
-                    <option value="radiology">Radiology</option>
-                    <option value="renal">Renal</option>
-                    <option value="respiratory">Respiratory</option>
-                    <option value="surgery">Surgery</option>
-                    <option value="urology">Urology</option>
-                    <option value="general">General</option>
-                  </select>
+                  <label className="block text-xs font-bold text-gray-800 mb-1">
+                    SUBJECTS {selectedCategories.length > 0 && `(${selectedCategories.length})`}
+                  </label>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                      className="w-full px-2 py-2 border-2 border-green-300 rounded text-xs font-medium bg-green-50 text-left flex justify-between items-center"
+                    >
+                      <span>
+                        {selectedCategories.length === 0 
+                          ? 'All Subjects' 
+                          : `${selectedCategories.length} selected`}
+                      </span>
+                      <svg className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {showCategoryDropdown && (
+                      <div className="absolute z-50 mt-1 w-full bg-white border-2 border-green-300 rounded shadow-lg max-h-60 overflow-y-auto">
+                        <div className="p-2 border-b sticky top-0 bg-white">
+                          <button
+                            onClick={handleClearCategories}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                        {CATEGORIES.map(cat => (
+                          <label
+                            key={cat.value}
+                            className="flex items-center px-2 py-1 hover:bg-green-50 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.includes(cat.value)}
+                              onChange={() => handleCategoryToggle(cat.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-xs">{cat.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Selected categories tags */}
+                  {selectedCategories.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {selectedCategories.slice(0, 3).map(cat => (
+                        <span
+                          key={cat}
+                          className="px-2 py-0.5 bg-green-200 text-green-800 rounded-full text-xs flex items-center"
+                        >
+                          {CATEGORIES.find(c => c.value === cat)?.label || cat}
+                          <button
+                            onClick={() => handleCategoryToggle(cat)}
+                            className="ml-1 text-green-600 hover:text-green-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      {selectedCategories.length > 3 && (
+                        <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-xs">
+                          +{selectedCategories.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
+                {/* Complexity Filter */}
                 <div>
                   <label className="block text-xs font-bold text-gray-800 mb-1">COMPLEXITY</label>
                   <select
@@ -450,157 +566,166 @@ const QuestionsPage = () => {
                     onChange={(e) => setDifficulty(e.target.value)}
                     className="w-full px-2 py-2 border-2 border-purple-300 rounded text-xs font-medium bg-purple-50"
                   >
-                    <option value="all">All</option>
-                    <option value="1">Foundational</option>
-                    <option value="2">Competent</option>
-                    <option value="3">Proficient</option>
-                    <option value="4">Advanced</option>
+                    <option value="all">All Levels</option>
+                    <option value="1">1 - Foundational</option>
+                    <option value="2">2 - Competent</option>
+                    <option value="3">3 - Proficient</option>
+                    <option value="4">4 - Advanced</option>
                   </select>
                 </div>
               </div>
-
-              {/* Session Stats - Pushed to bottom with flex-grow spacer */}
-              <div className="flex-grow"></div>
-              <div className="pt-3 border-t-2 border-gray-200 mt-3">
-                <h4 className="text-sm font-bold text-gray-900 mb-2 uppercase tracking-wide">Session Stats</h4>
-                <div className="space-y-1.5">
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-2 rounded-lg border-2 border-blue-300 shadow-md">
-                    <div className="text-xs font-semibold text-blue-700">Answered</div>
-                    <div className="text-xl font-bold text-blue-900">{stats.total}</div>
-                  </div>
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 p-2 rounded-lg border-2 border-green-300 shadow-md">
-                    <div className="text-xs font-semibold text-green-700">Correct</div>
-                    <div className="text-xl font-bold text-green-900">
-                      {stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0}%
+              
+              {/* Session Stats */}
+              <div className="mt-4 pt-4 border-t-2 border-gray-200">
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3">
+                  <h4 className="text-xs font-bold text-gray-700 mb-2">SESSION STATS</h4>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <div className="text-lg font-bold text-blue-600">{stats.total}</div>
+                      <div className="text-xs text-gray-500">Total</div>
                     </div>
-                  </div>
-                  <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-2 rounded-lg border-2 border-purple-300 shadow-md">
-                    <div className="text-xs font-semibold text-purple-700">Streak</div>
-                    <div className="text-xl font-bold text-purple-900">{stats.streak}</div>
+                    <div>
+                      <div className="text-lg font-bold text-green-600">{stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0}%</div>
+                      <div className="text-xs text-gray-500">Accuracy</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-purple-600">{stats.streak}</div>
+                      <div className="text-xs text-gray-500">Streak</div>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              <button
+                onClick={handleFinishSession}
+                className="mt-4 w-full py-2 bg-red-100 text-red-700 rounded-lg text-sm font-bold hover:bg-red-200 transition-colors"
+              >
+                Finish Session
+              </button>
             </div>
           </div>
 
-          {/* Main Question Area */}
+          {/* Main Content - Question Card */}
           <div className="lg:col-span-4">
-            {/* Progress Bar */}
-            <div className="bg-white rounded-lg shadow-md p-3 mb-3">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-semibold">
-                  Question {currentIndex + 1} of {questions.length}
-                </span>
-                <span className="text-sm font-semibold">Time: {timeElapsed}s</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all"
-                  style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-
-            {/* Question Card */}
-            <div className="bg-white rounded-lg shadow-md p-4">
-              {/* Professional Headers - Year (Blue/Purple), Subject (Green), Complexity (Purple) */}
-              <div className="flex flex-wrap gap-3 mb-4">
-                <span className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg text-sm font-bold shadow-md">
-                  Year {question.year}
-                </span>
-                <span className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md capitalize">
-                  {question.category}
-                </span>
-                <span className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-bold shadow-md">
-                  {complexityLabels[question.difficulty] || 'Competent'}
-                </span>
-              </div>
-
-              {/* Question Text */}
-              <h3 className="text-base font-semibold text-gray-900 mb-3 leading-tight">
-                {question.question}
-              </h3>
-
-              {/* Options */}
-              <div className="space-y-2 mb-3">
-                {question.options.map((option, index) => {
-                  const isCorrect = index === question.correct_answer;
-                  const isSelected = index === selectedAnswer;
-                  
-                  let bgColor = 'bg-gray-50 hover:bg-gray-100';
-                  let borderColor = 'border-gray-200';
-                  
-                  if (answered) {
-                    if (isCorrect) {
-                      bgColor = 'bg-green-100';
-                      borderColor = 'border-green-500';
-                    } else if (isSelected) {
-                      bgColor = 'bg-red-100';
-                      borderColor = 'border-red-500';
-                    }
-                  }
-
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswerSelect(index)}
-                      disabled={answered}
-                      className={`w-full text-left p-2 rounded-lg border-2 transition-all ${bgColor} ${borderColor} ${
-                        answered ? 'cursor-default' : 'cursor-pointer'
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center font-bold text-xs mr-2 flex-shrink-0">
-                          {String.fromCharCode(65 + index)}
-                        </span>
-                        <span className="flex-1 text-sm">{option}</span>
-                        {answered && isCorrect && (
-                          <span className="text-green-600 font-bold ml-2">✓</span>
-                        )}
-                        {answered && isSelected && !isCorrect && (
-                          <span className="text-red-600 font-bold ml-2">✗</span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Explanation */}
-              {answered && (
-                <div className="p-3 bg-blue-50 border-l-4 border-blue-500 rounded mb-3">
-                  <p className="text-sm text-blue-900 font-medium">
-                    <span className="font-bold">Explanation: </span>
-                    {question.explanation}
-                  </p>
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-gray-100">
+              {/* Question Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-lg font-bold">Q{currentIndex + 1}/{questions.length}</span>
+                    <div className="flex space-x-2">
+                      <span className="px-3 py-1 bg-white/20 rounded-full text-sm capitalize">
+                        {question.category}
+                      </span>
+                      <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
+                        Year {question.year}
+                      </span>
+                      <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
+                        {complexityLabels[question.difficulty] || `Level ${question.difficulty}`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold">{Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}</div>
+                    <div className="text-sm opacity-80">Time</div>
+                  </div>
                 </div>
-              )}
+              </div>
 
-              {/* Three-Button Layout */}
-              <div className="flex items-center justify-between gap-3 pt-3 border-t-2 border-gray-200">
-                <button
-                  onClick={handleNext}
-                  className="flex-1 py-2.5 px-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
-                >
-                  Next Question →
-                </button>
-                
-                <button
-                  onClick={handleFinishSession}
-                  className="flex-1 py-2.5 px-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
-                >
-                  ✓ Finish Session
-                </button>
-                
-                <button
-                  onClick={handleReportIssue}
-                  className="flex-1 py-2.5 px-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
-                >
-                  <svg className="w-6 h-6 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  Report Issue
-                </button>
+              {/* Question Body */}
+              <div className="p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6 leading-relaxed">
+                  {question.question}
+                </h2>
+
+                {/* Answer Options */}
+                <div className="space-y-3 mb-6">
+                  {question.options?.filter(opt => opt && opt.trim()).map((option, index) => {
+                    const isSelected = selectedAnswer === index;
+                    const isCorrect = index === question.correct_answer;
+                    const showResult = answered;
+
+                    let buttonClass = 'w-full text-left p-4 rounded-lg border-2 transition-all ';
+                    
+                    if (!showResult) {
+                      buttonClass += isSelected
+                        ? 'bg-blue-100 border-blue-500'
+                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300';
+                    } else {
+                      if (isCorrect) {
+                        buttonClass += 'bg-green-100 border-green-500';
+                      } else if (isSelected && !isCorrect) {
+                        buttonClass += 'bg-red-100 border-red-500';
+                      } else {
+                        buttonClass += 'bg-gray-50 border-gray-200';
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleAnswerSelect(index)}
+                        disabled={answered}
+                        className={buttonClass}
+                        data-testid={`answer-option-${index}`}
+                      >
+                        <div className="flex items-start">
+                          <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mr-4 flex-shrink-0 ${
+                            showResult && isCorrect
+                              ? 'bg-green-500 text-white'
+                              : showResult && isSelected && !isCorrect
+                                ? 'bg-red-500 text-white'
+                                : isSelected
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-gray-200 text-gray-700'
+                          }`}>
+                            {String.fromCharCode(65 + index)}
+                          </span>
+                          <span className="flex-1 text-gray-800">{option}</span>
+                          {showResult && isCorrect && (
+                            <span className="text-green-600 text-xl ml-2">✓</span>
+                          )}
+                          {showResult && isSelected && !isCorrect && (
+                            <span className="text-red-600 text-xl ml-2">✗</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Explanation (shown after answer) */}
+                {answered && question.explanation && (
+                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mb-6">
+                    <h4 className="font-bold text-blue-900 mb-2">Explanation:</h4>
+                    <p className="text-blue-800">{question.explanation}</p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={handleReportIssue}
+                    className="px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg font-medium flex items-center"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Report Issue
+                  </button>
+
+                  {answered && (
+                    <button
+                      onClick={handleNext}
+                      className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold flex items-center"
+                    >
+                      {currentIndex < questions.length - 1 ? 'Next Question' : 'Load More'}
+                      <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
