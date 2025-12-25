@@ -7,6 +7,9 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Check if user is admin
+  const isAdmin = user?.is_admin === true;
+
   const navLinks = [
     { path: '/', label: 'Home' },
     { path: '/questions', label: 'Questions' },
@@ -17,6 +20,11 @@ const Layout = ({ children }) => {
     { path: '/subscription', label: 'Subscription' },
     { path: '/contact', label: 'Contact' },
   ];
+
+  // Add admin link if user is admin
+  if (isAdmin) {
+    navLinks.push({ path: '/admin', label: 'Admin' });
+  }
 
   const handleLogout = () => {
     logout();
@@ -46,10 +54,12 @@ const Layout = ({ children }) => {
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`px-5 py-3 text-base font-bold rounded-lg transition-all flex items-center justify-center ${
+                  className={`px-4 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center ${
                     location.pathname === link.path
                       ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : link.path === '/admin' 
+                        ? 'text-red-700 hover:bg-red-100'
+                        : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   {link.label}
@@ -65,9 +75,16 @@ const Layout = ({ children }) => {
                     {user?.email?.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <span className="hidden sm:inline text-sm font-medium text-gray-700">
-                  {user?.email?.split('@')[0]}
-                </span>
+                <div className="hidden sm:block">
+                  <span className="text-sm font-medium text-gray-700">
+                    {user?.email?.split('@')[0]}
+                  </span>
+                  {isAdmin && (
+                    <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-bold">
+                      Admin
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={handleLogout}
@@ -89,6 +106,9 @@ const Layout = ({ children }) => {
       <footer className="bg-gray-800 text-white py-6 mt-auto">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">MedMCQ © 2025 - Medical Student Learning Platform</p>
+          <p className="text-xs text-gray-400 mt-1">
+            A product of Ambundita Investments Pty Ltd • ABN: Contact for details
+          </p>
           <p className="text-xs text-gray-400 mt-1">
             For educational purposes only. Not for actual medical diagnosis.
           </p>
