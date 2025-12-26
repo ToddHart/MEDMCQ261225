@@ -141,6 +141,14 @@ function AppRoutes() {
           </AdminRoute>
         }
       />
+      <Route
+        path="/crm"
+        element={
+          <AdminRoute>
+            <CRMPage />
+          </AdminRoute>
+        }
+      />
     </Routes>
   );
 }
