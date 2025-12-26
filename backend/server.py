@@ -1251,6 +1251,160 @@ async def get_question_bank_stats():
     }
 
 # ============================================================================
+# ADMIN ROUTES
+# ============================================================================
+
+async def verify_admin(user_id: str) -> bool:
+    """Verify if user is an admin."""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    return user and user.get('is_admin', False)
+
+@api_router.get("/admin/users")
+async def admin_get_users(user_id: str = Depends(get_current_user)):
+    """Get all users with their stats (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    users = await db.users.find({}, {"_id": 0}).to_list(10000)
+    
+    # Enrich users with progress data
+    enriched_users = []
+    for user in users:
+        progress = await db.user_progress.find_one({"user_id": user['id']}, {"_id": 0})
+        
+        # Get session count
+        sessions = await db.study_sessions.count_documents({"user_id": user['id']})
+        
+        enriched_users.append({
+            **user,
+            "total_questions_answered": progress.get('total_questions_answered', 0) if progress else 0,
+            "qualifying_sessions": progress.get('qualifying_sessions_completed', 0) if progress else 0,
+            "full_bank_unlocked": progress.get('full_bank_unlocked', False) if progress else False,
+            "total_sessions": sessions
+        })
+    
+    return enriched_users
+
+@api_router.get("/admin/stats")
+async def admin_get_stats(user_id: str = Depends(get_current_user)):
+    """Get platform statistics (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    total_users = await db.users.count_documents({})
+    active_subscriptions = await db.users.count_documents({"subscription_status": "active"})
+    free_grants = await db.users.count_documents({"subscription_status": "free_grant"})
+    
+    # Total questions answered across all users
+    pipeline = [
+        {"$group": {"_id": None, "total": {"$sum": "$total_questions_answered"}}}
+    ]
+    result = await db.user_progress.aggregate(pipeline).to_list(1)
+    total_questions_answered = result[0]['total'] if result else 0
+    
+    return {
+        "total_users": total_users,
+        "active_subscriptions": active_subscriptions,
+        "free_grants": free_grants,
+        "total_questions_answered": total_questions_answered
+    }
+
+@api_router.post("/admin/grant-access")
+async def admin_grant_access(
+    data: dict,
+    user_id: str = Depends(get_current_user)
+):
+    """Grant free subscription access to a user (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    target_user_id = data.get('user_id')
+    subscription_plan = data.get('subscription_plan', 'monthly')
+    duration_days = data.get('duration_days', 30)
+    
+    if not target_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    
+    # Calculate end date
+    end_date = datetime.utcnow() + timedelta(days=duration_days)
+    
+    # AI limits based on subscription (50% of cost budget)
+    ai_limits = {
+        'weekly': 0,
+        'monthly': 10,
+        'quarterly': 15,
+        'annual': 25
+    }
+    
+    # Update user
+    await db.users.update_one(
+        {"id": target_user_id},
+        {"$set": {
+            "subscription_status": "free_grant",
+            "subscription_plan": subscription_plan,
+            "subscription_start": datetime.utcnow().isoformat(),
+            "subscription_end": end_date.isoformat(),
+            "ai_max_daily_uses": ai_limits.get(subscription_plan, 10)
+        }}
+    )
+    
+    return {"success": True, "message": f"Granted {subscription_plan} access until {end_date.date()}"}
+
+@api_router.post("/admin/revoke-access")
+async def admin_revoke_access(
+    data: dict,
+    user_id: str = Depends(get_current_user)
+):
+    """Revoke subscription access from a user (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    target_user_id = data.get('user_id')
+    
+    if not target_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    
+    # Update user
+    await db.users.update_one(
+        {"id": target_user_id},
+        {"$set": {
+            "subscription_status": "free",
+            "subscription_plan": None,
+            "subscription_end": None,
+            "ai_max_daily_uses": 0
+        }}
+    )
+    
+    return {"success": True, "message": "Access revoked"}
+
+@api_router.post("/admin/toggle-admin")
+async def admin_toggle_admin(
+    data: dict,
+    user_id: str = Depends(get_current_user)
+):
+    """Toggle admin status for a user (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    target_user_id = data.get('user_id')
+    is_admin = data.get('is_admin', False)
+    
+    if not target_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    
+    # Prevent removing own admin access
+    if target_user_id == user_id and not is_admin:
+        raise HTTPException(status_code=400, detail="Cannot remove your own admin access")
+    
+    # Update user
+    await db.users.update_one(
+        {"id": target_user_id},
+        {"$set": {"is_admin": is_admin}}
+    )
+    
+    return {"success": True, "message": f"Admin access {'granted' if is_admin else 'revoked'}"}
+
+# ============================================================================
 # BASIC ROUTES
 # ============================================================================
 
