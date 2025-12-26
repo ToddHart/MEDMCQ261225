@@ -21,9 +21,10 @@ const Layout = ({ children }) => {
     { path: '/contact', label: 'Contact' },
   ];
 
-  // Add admin link if user is admin
+  // Add admin links if user is admin
   if (isAdmin) {
     navLinks.push({ path: '/admin', label: 'Admin' });
+    navLinks.push({ path: '/crm', label: 'CRM' });
   }
 
   const handleLogout = () => {
