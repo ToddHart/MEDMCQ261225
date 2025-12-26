@@ -421,8 +421,9 @@ const SubscriptionPage = () => {
 
         {/* Company Info */}
         <div className="text-center text-gray-500 text-sm">
-          <p>Ambundita Investments Pty Ltd</p>
-          <p>ABN: Contact for details • Australia</p>
+          <p className="font-semibold">ABUNDITA INVESTMENTS PTY LTD</p>
+          <p>ABN: 55 100 379 299</p>
+          <p>13 Forest View Close, Bonville NSW 2450, Australia</p>
         </div>
       </div>
     </Layout>
