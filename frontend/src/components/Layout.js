@@ -107,7 +107,10 @@ const Layout = ({ children }) => {
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">MedMCQ © 2025 - Medical Student Learning Platform</p>
           <p className="text-xs text-gray-400 mt-1">
-            A product of Ambundita Investments Pty Ltd • ABN: Contact for details
+            A product of ABUNDITA INVESTMENTS PTY LTD • ABN: 55 100 379 299
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            13 Forest View Close, Bonville NSW 2450, Australia
           </p>
           <p className="text-xs text-gray-400 mt-1">
             For educational purposes only. Not for actual medical diagnosis.
