@@ -638,7 +638,12 @@ const QuestionsPage = () => {
 
                 {/* Answer Options */}
                 <div className="space-y-3 mb-6">
-                  {question.options?.filter(opt => opt && opt.trim()).map((option, index) => {
+                  {question.options?.map((option, index) => {
+                    // Skip empty/nan options
+                    if (!option || !option.trim() || option.toLowerCase() === 'nan') {
+                      return null;
+                    }
+                    
                     const isSelected = selectedAnswer === index;
                     const isCorrect = index === question.correct_answer;
                     const showResult = answered;
