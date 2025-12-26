@@ -14,6 +14,7 @@ import ImportPage from './pages/ImportPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import ContactPage from './pages/ContactPage';
 import AdminPage from './pages/AdminPage';
+import CRMPage from './pages/CRMPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
