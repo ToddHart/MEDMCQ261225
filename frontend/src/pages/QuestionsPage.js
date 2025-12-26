@@ -610,20 +610,18 @@ const QuestionsPage = () => {
             <div className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-gray-100">
               {/* Question Header */}
               <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-lg font-bold">Q{currentIndex + 1}/{questions.length}</span>
-                    <div className="flex space-x-2">
-                      <span className="px-3 py-1 bg-white/20 rounded-full text-sm capitalize">
-                        {question.category}
-                      </span>
-                      <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
-                        Year {question.year}
-                      </span>
-                      <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
-                        {complexityLabels[question.difficulty] || `Level ${question.difficulty}`}
-                      </span>
-                    </div>
+                    <span className="px-3 py-1 bg-green-500 rounded-full text-sm capitalize">
+                      {question.category}
+                    </span>
+                    <span className="px-3 py-1 bg-blue-400 rounded-full text-sm">
+                      Year {question.year}
+                    </span>
+                    <span className="px-3 py-1 bg-purple-400 rounded-full text-sm">
+                      {complexityLabels[question.difficulty] || `Level ${question.difficulty}`}
+                    </span>
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold">{Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}</div>
