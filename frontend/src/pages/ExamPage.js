@@ -428,7 +428,12 @@ const ExamPage = () => {
           </div>
 
           <div className="space-y-3 mb-6">
-            {currentQuestion.options?.filter(opt => opt && opt.trim()).map((option, index) => {
+            {currentQuestion.options?.map((option, index) => {
+              // Skip empty/nan options
+              if (!option || !option.trim() || option.toLowerCase() === 'nan') {
+                return null;
+              }
+              
               const isSelected = answers[currentQuestion.id] === index;
               
               return (
