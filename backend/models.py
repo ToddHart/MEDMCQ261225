@@ -70,12 +70,16 @@ class User(UserBase):
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     subscription_tier: SubscriptionTier = SubscriptionTier.FREE
+    subscription_status: Optional[str] = "free"
+    subscription_plan: Optional[str] = None
+    subscription_end: Optional[str] = None
     storage_used_gb: float = 0.0
     storage_quota_gb: float = 5.0
     ai_daily_uses: int = 0
     ai_max_daily_uses: int = 10
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_active: bool = True
+    is_admin: bool = False
 
 # Token Models
 class Token(BaseModel):
