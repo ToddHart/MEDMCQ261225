@@ -1405,6 +1405,185 @@ async def admin_toggle_admin(
     return {"success": True, "message": f"Admin access {'granted' if is_admin else 'revoked'}"}
 
 # ============================================================================
+# CRM ROUTES (Admin Only)
+# ============================================================================
+
+@api_router.get("/crm/contacts")
+async def crm_get_contacts(user_id: str = Depends(get_current_user)):
+    """Get all CRM contacts (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    contacts = await db.crm_contacts.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return contacts
+
+@api_router.get("/crm/contacts/{contact_id}")
+async def crm_get_contact(contact_id: str, user_id: str = Depends(get_current_user)):
+    """Get single CRM contact with details (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    contact = await db.crm_contacts.find_one({"id": contact_id}, {"_id": 0})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return contact
+
+@api_router.post("/crm/contacts")
+async def crm_create_contact(data: dict, user_id: str = Depends(get_current_user)):
+    """Create a new CRM contact (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    contact = {
+        "id": str(uuid.uuid4()),
+        "name": data.get("name"),
+        "email": data.get("email"),
+        "phone": data.get("phone"),
+        "company": data.get("company"),
+        "status": data.get("status", "lead"),
+        "source": data.get("source"),
+        "notes_history": [],
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+        "created_by": user_id
+    }
+    
+    # Add initial note if provided
+    if data.get("notes"):
+        contact["notes_history"].append({
+            "content": data["notes"],
+            "created_at": datetime.utcnow().isoformat(),
+            "created_by": user_id
+        })
+    
+    await db.crm_contacts.insert_one(contact)
+    return contact
+
+@api_router.put("/crm/contacts/{contact_id}")
+async def crm_update_contact(contact_id: str, data: dict, user_id: str = Depends(get_current_user)):
+    """Update a CRM contact (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    update_data = {k: v for k, v in data.items() if k not in ["id", "created_at", "notes_history"]}
+    update_data["updated_at"] = datetime.utcnow().isoformat()
+    
+    await db.crm_contacts.update_one(
+        {"id": contact_id},
+        {"$set": update_data}
+    )
+    
+    return {"success": True}
+
+@api_router.delete("/crm/contacts/{contact_id}")
+async def crm_delete_contact(contact_id: str, user_id: str = Depends(get_current_user)):
+    """Delete a CRM contact (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    await db.crm_contacts.delete_one({"id": contact_id})
+    # Also delete related tasks
+    await db.crm_tasks.delete_many({"contact_id": contact_id})
+    
+    return {"success": True}
+
+@api_router.post("/crm/contacts/{contact_id}/notes")
+async def crm_add_note(contact_id: str, data: dict, user_id: str = Depends(get_current_user)):
+    """Add a note to a CRM contact (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    note = {
+        "content": data.get("content"),
+        "created_at": datetime.utcnow().isoformat(),
+        "created_by": user_id
+    }
+    
+    await db.crm_contacts.update_one(
+        {"id": contact_id},
+        {
+            "$push": {"notes_history": note},
+            "$set": {"updated_at": datetime.utcnow().isoformat()}
+        }
+    )
+    
+    return {"success": True}
+
+@api_router.get("/crm/tasks")
+async def crm_get_tasks(user_id: str = Depends(get_current_user)):
+    """Get all CRM tasks (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    tasks = await db.crm_tasks.find({}, {"_id": 0}).sort("due_date", 1).to_list(1000)
+    
+    # Enrich with contact names
+    for task in tasks:
+        if task.get("contact_id"):
+            contact = await db.crm_contacts.find_one({"id": task["contact_id"]}, {"name": 1})
+            task["contact_name"] = contact.get("name") if contact else None
+    
+    return tasks
+
+@api_router.post("/crm/tasks")
+async def crm_create_task(data: dict, user_id: str = Depends(get_current_user)):
+    """Create a new CRM task (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    task = {
+        "id": str(uuid.uuid4()),
+        "title": data.get("title"),
+        "description": data.get("description"),
+        "due_date": data.get("due_date"),
+        "priority": data.get("priority", "medium"),
+        "contact_id": data.get("contact_id"),
+        "completed": False,
+        "created_at": datetime.utcnow().isoformat(),
+        "created_by": user_id
+    }
+    
+    await db.crm_tasks.insert_one(task)
+    return task
+
+@api_router.put("/crm/tasks/{task_id}")
+async def crm_update_task(task_id: str, data: dict, user_id: str = Depends(get_current_user)):
+    """Update a CRM task (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    update_data = {k: v for k, v in data.items() if k not in ["id", "created_at"]}
+    if data.get("completed"):
+        update_data["completed_at"] = datetime.utcnow().isoformat()
+    
+    await db.crm_tasks.update_one(
+        {"id": task_id},
+        {"$set": update_data}
+    )
+    
+    return {"success": True}
+
+@api_router.get("/crm/stats")
+async def crm_get_stats(user_id: str = Depends(get_current_user)):
+    """Get CRM statistics (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    total_contacts = await db.crm_contacts.count_documents({})
+    leads = await db.crm_contacts.count_documents({"status": "lead"})
+    prospects = await db.crm_contacts.count_documents({"status": "prospect"})
+    customers = await db.crm_contacts.count_documents({"status": "customer"})
+    pending_tasks = await db.crm_tasks.count_documents({"completed": False})
+    
+    return {
+        "total_contacts": total_contacts,
+        "leads": leads,
+        "prospects": prospects,
+        "customers": customers,
+        "pending_tasks": pending_tasks
+    }
+
+# ============================================================================
 # BASIC ROUTES
 # ============================================================================
 
