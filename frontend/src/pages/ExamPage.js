@@ -412,13 +412,13 @@ const ExamPage = () => {
         <div className="bg-white rounded-lg shadow-md p-8 mb-6">
           <div className="mb-6">
             <div className="flex flex-wrap gap-2 mb-4">
-              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm capitalize">
+              <span className="px-3 py-1 bg-green-500 text-white rounded-full text-sm capitalize">
                 {currentQuestion.category}
               </span>
-              <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                Difficulty: {currentQuestion.difficulty}
+              <span className="px-3 py-1 bg-purple-500 text-white rounded-full text-sm">
+                Level: {currentQuestion.difficulty}
               </span>
-              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+              <span className="px-3 py-1 bg-blue-500 text-white rounded-full text-sm">
                 Year {currentQuestion.year}
               </span>
             </div>
