@@ -53,6 +53,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Root-level health check for deployment (MUST be before api_router)
+@app.get("/health")
+async def root_health_check():
+    """Root-level health check endpoint for Kubernetes deployment."""
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
 # ============================================================================
 # AUTHENTICATION ROUTES
 # ============================================================================
