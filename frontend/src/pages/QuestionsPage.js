@@ -403,6 +403,40 @@ const QuestionsPage = () => {
     );
   }
 
+  // Show daily limit exceeded screen
+  if (dailyLimitError) {
+    return (
+      <Layout>
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <div className="text-6xl mb-4">⏰</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Daily Limit Reached</h2>
+            <p className="text-gray-600 mb-6">
+              You've reached your daily limit of 50 questions. Subscribe to get unlimited access to all questions!
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => window.location.href = '/subscription'}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold"
+              >
+                Subscribe Now
+              </button>
+              <button
+                onClick={() => window.location.href = '/'}
+                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                ← Go to Home Page
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mt-4">
+              Your daily limit resets at midnight UTC.
+            </p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   if (questions.length === 0) {
     return (
       <Layout>
@@ -438,6 +472,25 @@ const QuestionsPage = () => {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
+        {/* Daily Limit Banner for Non-Subscribers */}
+        {dailyLimitStatus && !dailyLimitStatus.is_subscriber && (
+          <div className="rounded-lg p-3 mb-4 bg-amber-100 border border-amber-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-semibold text-amber-800">
+                  📊 {dailyLimitStatus.questions_remaining} questions remaining today
+                </span>
+                <span className="text-amber-700 text-sm ml-2">
+                  (Free tier: {dailyLimitStatus.daily_limit} questions/day)
+                </span>
+              </div>
+              <a href="/subscription" className="text-sm bg-amber-600 text-white px-3 py-1 rounded hover:bg-amber-700 font-medium">
+                Get Unlimited Access
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Unlock Status Banner */}
         {unlockStatus && (
           <div className={`rounded-lg p-3 mb-4 ${
