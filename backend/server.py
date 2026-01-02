@@ -353,20 +353,10 @@ async def get_questions(
       only UNE priority questions are served.
     - YEAR FILTERING: Students only see questions up to their current study year
     - COMPLEXITY PROGRESSION: Start at foundational level, build up based on performance
-    - DAILY LIMIT: Non-subscribers limited to 50 questions per day
+    - DAILY LIMIT: Non-subscribers limited to 50 questions per day (checked when answering)
     """
-    # Check daily limit for non-subscribers
-    can_continue, questions_remaining, is_subscriber = await check_daily_question_limit(user_id)
-    
-    if not can_continue:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Daily question limit reached. Subscribe to get unlimited access!"
-        )
-    
-    # For non-subscribers, cap the limit to remaining questions
-    if not is_subscriber and questions_remaining > 0:
-        limit = min(limit, questions_remaining)
+    # NOTE: Daily limit is now checked when ANSWERING questions, not when fetching
+    # This allows users to view questions but tracks actual usage
     
     # Check user's unlock status
     full_bank_unlocked, qualifying_sessions = await get_user_unlock_status(user_id)
