@@ -55,9 +55,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (email, password, fullName) => {
+  const register = async (email, password, fullName, additionalFields = {}) => {
     try {
-      await registerApi({ email, password, full_name: fullName });
+      await registerApi({ 
+        email, 
+        password, 
+        full_name: fullName,
+        institution: additionalFields.institution,
+        current_year: additionalFields.current_year,
+        degree_type: additionalFields.degree_type,
+        country: additionalFields.country
+      });
       // Auto-login after registration
       return await login(email, password);
     } catch (error) {
