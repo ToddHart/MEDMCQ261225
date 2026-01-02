@@ -74,10 +74,13 @@ async def register(user_data: UserCreate):
             detail="Email already registered"
         )
     
-    # Create user
+    # Create user with additional fields
     user = User(
         email=user_data.email,
-        full_name=user_data.full_name
+        full_name=user_data.full_name,
+        institution=user_data.institution,
+        current_year=user_data.current_year,
+        degree_type=user_data.degree_type
     )
     
     # Hash password and store separately
