@@ -102,6 +102,28 @@ const QuestionsPage = () => {
     fetchUnlockStatus();
   }, []);
 
+  // State for daily limit
+  const [dailyLimitStatus, setDailyLimitStatus] = useState(null);
+  const [dailyLimitError, setDailyLimitError] = useState(false);
+
+  // Fetch daily limit status
+  useEffect(() => {
+    const fetchDailyLimit = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+        
+        const response = await axios.get(`${BACKEND_URL}/api/questions/daily-limit`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setDailyLimitStatus(response.data);
+      } catch (error) {
+        console.error('Error fetching daily limit:', error);
+      }
+    };
+    fetchDailyLimit();
+  }, [stats.total]); // Refresh when questions are answered
+
   // Save stats to localStorage whenever they change (but not on first render)
   useEffect(() => {
     if (isFirstRender.current) {
@@ -128,6 +150,7 @@ const QuestionsPage = () => {
 
   const loadQuestions = async () => {
     setLoading(true);
+    setDailyLimitError(false);
     try {
       const params = { limit: 100 };
       
@@ -156,6 +179,10 @@ const QuestionsPage = () => {
       setSelectedAnswer(null);
     } catch (error) {
       console.error('Error loading questions:', error);
+      // Check if it's a daily limit error
+      if (error.response?.status === 403) {
+        setDailyLimitError(true);
+      }
     } finally {
       setLoading(false);
     }
