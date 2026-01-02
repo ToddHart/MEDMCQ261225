@@ -129,6 +129,78 @@ async def login(credentials: UserLogin):
         refresh_token=refresh_token
     )
 
+@api_router.post("/auth/forgot-password")
+async def forgot_password(data: dict):
+    """Request password reset - sends email with reset link"""
+    import secrets
+    
+    email = data.get('email')
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    # Find user (don't reveal if email exists for security)
+    user = await db.users.find_one({"email": email})
+    
+    if user:
+        # Generate reset token
+        reset_token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+        
+        # Store reset token
+        await db.password_resets.delete_many({"email": email})  # Remove old tokens
+        await db.password_resets.insert_one({
+            "email": email,
+            "token": reset_token,
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.utcnow().isoformat()
+        })
+        
+        # TODO: Send email with reset link
+        # For now, log the token (in production, send via email service)
+        logger.info(f"Password reset requested for {email}. Token: {reset_token}")
+        
+        # In production, you would send an email here using a service like SendGrid, AWS SES, etc.
+        # Example reset link format: https://medmcq.com.au/reset-password?token={reset_token}
+    
+    # Always return success (don't reveal if email exists)
+    return {"message": "If an account exists with this email, you will receive password reset instructions shortly."}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(data: dict):
+    """Reset password using token from email"""
+    token = data.get('token')
+    new_password = data.get('new_password')
+    
+    if not token or not new_password:
+        raise HTTPException(status_code=400, detail="Token and new password are required")
+    
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Find reset token
+    reset_record = await db.password_resets.find_one({"token": token})
+    
+    if not reset_record:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    # Check if expired
+    expires_at = datetime.fromisoformat(reset_record['expires_at'])
+    if datetime.utcnow() > expires_at:
+        await db.password_resets.delete_one({"token": token})
+        raise HTTPException(status_code=400, detail="Reset token has expired")
+    
+    # Update password
+    hashed_password = hash_password(new_password)
+    await db.users.update_one(
+        {"email": reset_record['email']},
+        {"$set": {"hashed_password": hashed_password}}
+    )
+    
+    # Delete used token
+    await db.password_resets.delete_one({"token": token})
+    
+    return {"message": "Password has been reset successfully. You can now login with your new password."}
+
 @api_router.get("/auth/me", response_model=User)
 async def get_current_user_info(user_id: str = Depends(get_current_user)):
     """Get current user information"""
