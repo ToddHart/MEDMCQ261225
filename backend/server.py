@@ -453,6 +453,18 @@ async def get_questions(
     
     return randomized_questions
 
+@api_router.get("/questions/daily-limit")
+async def get_daily_limit_status(user_id: str = Depends(get_current_user)):
+    """Get user's daily question limit status."""
+    can_continue, questions_remaining, is_subscriber = await check_daily_question_limit(user_id)
+    
+    return {
+        "can_continue": can_continue,
+        "questions_remaining": questions_remaining,
+        "is_subscriber": is_subscriber,
+        "daily_limit": 50 if not is_subscriber else -1
+    }
+
 @api_router.get("/questions/adaptive", response_model=List[Question])
 async def get_adaptive_questions(
     category: Optional[QuestionCategory] = None,
