@@ -253,6 +253,86 @@ async def get_user_unlock_status(user_id: str):
         return False, 0
     return progress.get('full_bank_unlocked', False), progress.get('qualifying_sessions_completed', 0)
 
+async def check_daily_question_limit(user_id: str) -> tuple:
+    """
+    Check if user has exceeded their daily question limit.
+    Returns: (can_continue, questions_remaining, is_subscriber)
+    """
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        return False, 0, False
+    
+    # Check if user is a paid subscriber
+    subscription_tier = user.get('subscription_tier', 'free')
+    is_subscriber = subscription_tier != 'free' and subscription_tier is not None
+    
+    # Subscribers have unlimited access
+    if is_subscriber:
+        return True, -1, True
+    
+    # For free users, check daily limit (50 questions)
+    DAILY_LIMIT = 50
+    today = datetime.utcnow().date().isoformat()
+    
+    # Get or create daily usage record
+    daily_usage = await db.daily_usage.find_one({
+        "user_id": user_id,
+        "date": today
+    }, {"_id": 0})
+    
+    if not daily_usage:
+        # First question of the day
+        await db.daily_usage.insert_one({
+            "user_id": user_id,
+            "date": today,
+            "questions_viewed": 0,
+            "created_at": datetime.utcnow().isoformat()
+        })
+        return True, DAILY_LIMIT, False
+    
+    questions_viewed = daily_usage.get('questions_viewed', 0)
+    questions_remaining = max(0, DAILY_LIMIT - questions_viewed)
+    
+    return questions_remaining > 0, questions_remaining, False
+
+async def increment_daily_usage(user_id: str, count: int = 1):
+    """Increment the daily question count for a user."""
+    today = datetime.utcnow().date().isoformat()
+    await db.daily_usage.update_one(
+        {"user_id": user_id, "date": today},
+        {
+            "$inc": {"questions_viewed": count},
+            "$setOnInsert": {
+                "user_id": user_id,
+                "date": today,
+                "created_at": datetime.utcnow().isoformat()
+            }
+        },
+        upsert=True
+    )
+
+async def get_user_study_year(user_id: str) -> int:
+    """Get user's current study year. Default to 2 if not set."""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        return 2
+    return user.get('current_year') or 2  # Default to year 2
+
+async def get_user_category_progress(user_id: str, category: str) -> dict:
+    """Get user's progress in a specific category to determine complexity level."""
+    progress = await db.category_progress.find_one({
+        "user_id": user_id,
+        "category": category
+    }, {"_id": 0})
+    
+    if not progress:
+        return {"mastered_level": 0, "current_level": 1}  # Start at foundational
+    
+    return {
+        "mastered_level": progress.get('mastered_level', 0),
+        "current_level": progress.get('current_level', 1)
+    }
+
 # ============================================================================
 # QUESTION ROUTES
 # ============================================================================
@@ -268,20 +348,58 @@ async def get_questions(
 ):
     """Get questions with optional filters - randomized order with randomized answers.
     
-    PRIORITY SYSTEM: Until user completes 3 qualifying sessions (85%+ on 50+ questions),
-    only UNE priority questions are served.
+    FEATURES:
+    - PRIORITY SYSTEM: Until user completes 3 qualifying sessions (85%+ on 50+ questions),
+      only UNE priority questions are served.
+    - YEAR FILTERING: Students only see questions up to their current study year
+    - COMPLEXITY PROGRESSION: Start at foundational level, build up based on performance
+    - DAILY LIMIT: Non-subscribers limited to 50 questions per day
     """
+    # Check daily limit for non-subscribers
+    can_continue, questions_remaining, is_subscriber = await check_daily_question_limit(user_id)
+    
+    if not can_continue:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Daily question limit reached. Subscribe to get unlimited access!"
+        )
+    
+    # For non-subscribers, cap the limit to remaining questions
+    if not is_subscriber and questions_remaining > 0:
+        limit = min(limit, questions_remaining)
+    
     # Check user's unlock status
     full_bank_unlocked, qualifying_sessions = await get_user_unlock_status(user_id)
+    
+    # Get user's study year for filtering
+    user_study_year = await get_user_study_year(user_id)
     
     query = {}
     
     if category:
         query['category'] = category.value
+        
+        # Get user's progress in this category for complexity progression
+        cat_progress = await get_user_category_progress(user_id, category.value)
+        current_level = cat_progress.get('current_level', 1)
+        
+        # If no explicit difficulty requested, use progressive difficulty
+        if not difficulty:
+            # Allow questions at or below current level (with some stretch questions)
+            query['difficulty'] = {'$lte': str(min(current_level + 1, 4))}
+    
     if difficulty:
         query['difficulty'] = difficulty.value
+    
+    # YEAR FILTERING: Only show questions up to user's current study year
+    # If user explicitly requests a specific year, use that (but cap at their level)
     if year:
-        query['year'] = year
+        # User requested specific year - cap at their study year
+        effective_year = min(year, user_study_year)
+        query['year'] = effective_year
+    else:
+        # No year specified - show all years up to their study year
+        query['year'] = {'$lte': user_study_year}
     
     # PRIORITY SYSTEM: If not unlocked, only serve UNE priority questions
     if not full_bank_unlocked:
