@@ -9,6 +9,9 @@ const LoginPage = () => {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
   
   const { login, register } = useAuth();
   const navigate = useNavigate();
@@ -29,14 +32,106 @@ const LoginPage = () => {
       if (result.success) {
         navigate('/');
       } else {
-        setError(result.error);
+        // Always show generic error message for login failures
+        if (isLogin) {
+          setError('Either the username and/or password are incorrect.');
+        } else {
+          setError(result.error);
+        }
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      if (isLogin) {
+        setError('Either the username and/or password are incorrect.');
+      } else {
+        setError('An unexpected error occurred');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotMessage('');
+    
+    if (!forgotEmail) {
+      setForgotMessage('Please enter your email address.');
+      return;
+    }
+
+    // Show success message regardless (for security - don't reveal if email exists)
+    setForgotMessage('If an account exists with this email, you will receive password reset instructions shortly.');
+    
+    // In a real implementation, this would call an API endpoint
+    // For now, we just show the message
+    setTimeout(() => {
+      setShowForgotPassword(false);
+      setForgotEmail('');
+      setForgotMessage('');
+    }, 5000);
+  };
+
+  // Forgot Password Modal
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 px-4">
+        <div className="max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4">
+              <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-white">Forgot Password</h1>
+            <p className="text-blue-100 mt-2">Enter your email to reset your password</p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-2xl p-8">
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
+
+              {forgotMessage && (
+                <div className="p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded-lg text-sm">
+                  {forgotMessage}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Send Reset Instructions
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotEmail('');
+                  setForgotMessage('');
+                }}
+                className="w-full text-gray-600 hover:text-gray-900 py-2 px-4 rounded-lg transition-colors font-medium"
+              >
+                ← Back to Login
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 px-4">
@@ -134,8 +229,17 @@ const LoginPage = () => {
             >
               {loading ? 'Please wait...' : isLogin ? 'Login' : 'Register'}
             </button>
-          </form>
 
+            {isLogin && (
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="w-full text-blue-600 hover:text-blue-800 py-2 text-sm font-medium transition-colors"
+              >
+                Forgot Password?
+              </button>
+            )}
+          </form>
         </div>
       </div>
     </div>
