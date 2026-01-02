@@ -230,6 +230,14 @@ const QuestionsPage = () => {
         total: prev.total + 1,
         streak: response.data?.current_streak || (isCorrect ? prev.streak + 1 : 0),
       }));
+      
+      // Update daily limit status from response
+      if (response.data?.questions_remaining !== undefined && response.data.questions_remaining >= 0) {
+        setDailyLimitStatus(prev => ({
+          ...prev,
+          questions_remaining: response.data.questions_remaining
+        }));
+      }
 
       // Update session category stats in localStorage
       const savedCategoryStats = localStorage.getItem('sessionCategoryStats');
@@ -246,6 +254,13 @@ const QuestionsPage = () => {
 
     } catch (error) {
       console.error('Error submitting answer:', error);
+      
+      // Check if daily limit was exceeded
+      if (error.response?.status === 403) {
+        setDailyLimitError(true);
+        return;
+      }
+      
       setStats(prev => ({
         correct: isCorrect ? prev.correct + 1 : prev.correct,
         total: prev.total + 1,
