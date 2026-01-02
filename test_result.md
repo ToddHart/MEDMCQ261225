@@ -101,3 +101,127 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  MedMCQ application with the following new requirements:
+  1. Questions page: Swap Report Issue and Next Question button positions
+  2. Report Issue button should have red styling (like incorrect answer)
+  3. Answer labels should always be sequential (A,B,C,D) not skip letters
+  4. Questions should be filtered by user's study year
+  5. Non-subscribers limited to 50 questions per day
+  6. Complexity progression - start at foundational level
+
+backend:
+  - task: "Daily question limit for non-subscribers (50/day)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented check_daily_question_limit, increment_daily_usage functions and /api/questions/daily-limit endpoint"
+
+  - task: "Year-based question filtering"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Questions filtered by user's current_year. Default to year 2 if not set."
+
+  - task: "Complexity progression by category"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added get_user_category_progress function. Start at foundational level."
+
+frontend:
+  - task: "Swap Report Issue and Next Question buttons"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/QuestionsPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Swapped button positions - Next Question on left, Report Issue on right"
+
+  - task: "Report Issue button red styling"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/QuestionsPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Changed to red border, light red background (bg-red-100, border-red-500)"
+
+  - task: "Sequential answer labels (A,B,C,D)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/QuestionsPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Filter out nan/empty options first, then assign sequential labels using displayIndex"
+
+  - task: "Daily limit banner for non-subscribers"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/QuestionsPage.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added amber banner showing questions remaining and daily limit reached screen"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Swap Report Issue and Next Question buttons"
+    - "Report Issue button red styling"
+    - "Sequential answer labels (A,B,C,D)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Implemented all requested features for Questions page:
+      1. Swapped button positions - Next Question now on left, Report Issue on right
+      2. Report Issue has red styling (border-red-500, bg-red-100)
+      3. Answer options now use sequential labels - filter out empty/nan first, then A,B,C,D
+      4. Backend filters questions by user's study year (defaults to 2 if not set)
+      5. Non-subscribers limited to 50 questions/day with banner and limit screen
+      6. Complexity progression starts at foundational level
+      
+      Test credentials: demo@medmcq.com / demo123
+      Please test the Questions page UI changes first.
