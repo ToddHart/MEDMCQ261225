@@ -1,54 +1,261 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
-// Australian Universities
-const AUSTRALIAN_UNIVERSITIES = [
-  "Australian National University",
-  "Bond University",
-  "Charles Darwin University",
-  "Charles Sturt University",
-  "CQUniversity Australia",
-  "Curtin University",
-  "Deakin University",
-  "Edith Cowan University",
-  "Federation University Australia",
-  "Flinders University",
-  "Griffith University",
-  "James Cook University",
-  "La Trobe University",
-  "Macquarie University",
-  "Monash University",
-  "Murdoch University",
-  "Queensland University of Technology",
-  "RMIT University",
-  "Southern Cross University",
-  "Swinburne University of Technology",
-  "University of Adelaide",
-  "University of Canberra",
-  "University of Melbourne",
-  "University of New England",
-  "University of New South Wales",
-  "University of Newcastle",
-  "University of Notre Dame Australia",
-  "University of Queensland",
-  "University of South Australia",
-  "University of Southern Queensland",
-  "University of Sydney",
-  "University of Tasmania",
-  "University of Technology Sydney",
-  "University of the Sunshine Coast",
-  "University of Western Australia",
-  "University of Wollongong",
-  "Victoria University",
-  "Western Sydney University",
-  "Other"
-];
+// Institutions by Country
+const INSTITUTIONS_BY_COUNTRY = {
+  "Australia": [
+    "Australian National University",
+    "Bond University",
+    "Charles Darwin University",
+    "Charles Sturt University",
+    "CQUniversity Australia",
+    "Curtin University",
+    "Deakin University",
+    "Edith Cowan University",
+    "Federation University Australia",
+    "Flinders University",
+    "Griffith University",
+    "James Cook University",
+    "La Trobe University",
+    "Macquarie University",
+    "Monash University",
+    "Murdoch University",
+    "Queensland University of Technology",
+    "RMIT University",
+    "Southern Cross University",
+    "Swinburne University of Technology",
+    "University of Adelaide",
+    "University of Canberra",
+    "University of Melbourne",
+    "University of New England",
+    "University of New South Wales",
+    "University of Newcastle",
+    "University of Notre Dame Australia",
+    "University of Queensland",
+    "University of South Australia",
+    "University of Southern Queensland",
+    "University of Sydney",
+    "University of Tasmania",
+    "University of Technology Sydney",
+    "University of the Sunshine Coast",
+    "University of Western Australia",
+    "University of Wollongong",
+    "Victoria University",
+    "Western Sydney University"
+  ],
+  "New Zealand": [
+    "University of Auckland",
+    "University of Otago",
+    "Auckland University of Technology",
+    "Victoria University of Wellington",
+    "University of Canterbury",
+    "Massey University",
+    "University of Waikato",
+    "Lincoln University"
+  ],
+  "United Kingdom": [
+    "University of Oxford",
+    "University of Cambridge",
+    "Imperial College London",
+    "University College London",
+    "King's College London",
+    "University of Edinburgh",
+    "University of Manchester",
+    "University of Bristol",
+    "University of Glasgow",
+    "University of Birmingham",
+    "University of Leeds",
+    "University of Sheffield",
+    "University of Southampton",
+    "University of Liverpool",
+    "University of Nottingham",
+    "Newcastle University",
+    "Cardiff University",
+    "Queen's University Belfast",
+    "University of Leicester",
+    "University of Dundee",
+    "University of Aberdeen",
+    "St George's University of London",
+    "Brighton and Sussex Medical School",
+    "Hull York Medical School",
+    "Keele University",
+    "Lancaster University",
+    "Plymouth University",
+    "University of Exeter",
+    "University of Warwick",
+    "Queen Mary University of London"
+  ],
+  "United States": [
+    "Harvard Medical School",
+    "Johns Hopkins University",
+    "Stanford University",
+    "University of California, San Francisco",
+    "University of Pennsylvania",
+    "Columbia University",
+    "Duke University",
+    "Yale University",
+    "University of Michigan",
+    "University of Washington",
+    "Northwestern University",
+    "University of Chicago",
+    "Cornell University",
+    "University of Pittsburgh",
+    "Vanderbilt University",
+    "University of California, Los Angeles",
+    "University of California, San Diego",
+    "New York University",
+    "Emory University",
+    "University of North Carolina",
+    "Washington University in St. Louis",
+    "Baylor College of Medicine",
+    "University of Virginia",
+    "University of Wisconsin",
+    "Ohio State University",
+    "University of Texas Southwestern",
+    "University of Colorado",
+    "University of Minnesota",
+    "University of Florida",
+    "Boston University"
+  ],
+  "Canada": [
+    "University of Toronto",
+    "McGill University",
+    "University of British Columbia",
+    "McMaster University",
+    "University of Alberta",
+    "University of Ottawa",
+    "Queen's University",
+    "Western University",
+    "University of Calgary",
+    "Dalhousie University",
+    "University of Manitoba",
+    "University of Saskatchewan",
+    "Memorial University of Newfoundland",
+    "Northern Ontario School of Medicine",
+    "University of Montreal",
+    "Laval University",
+    "University of Sherbrooke"
+  ],
+  "Ireland": [
+    "Trinity College Dublin",
+    "University College Dublin",
+    "Royal College of Surgeons in Ireland",
+    "University College Cork",
+    "National University of Ireland, Galway",
+    "University of Limerick"
+  ],
+  "Singapore": [
+    "National University of Singapore",
+    "Duke-NUS Medical School",
+    "Nanyang Technological University",
+    "Lee Kong Chian School of Medicine"
+  ],
+  "Malaysia": [
+    "University of Malaya",
+    "Universiti Kebangsaan Malaysia",
+    "Universiti Putra Malaysia",
+    "Universiti Sains Malaysia",
+    "International Medical University",
+    "Monash University Malaysia",
+    "Taylor's University",
+    "UCSI University",
+    "Management and Science University",
+    "Perdana University"
+  ],
+  "India": [
+    "All India Institute of Medical Sciences (AIIMS), New Delhi",
+    "Christian Medical College, Vellore",
+    "Armed Forces Medical College, Pune",
+    "Maulana Azad Medical College, Delhi",
+    "King George's Medical University, Lucknow",
+    "Jawaharlal Institute of Postgraduate Medical Education & Research",
+    "Grant Medical College, Mumbai",
+    "Seth GS Medical College, Mumbai",
+    "Kasturba Medical College, Manipal",
+    "St. John's Medical College, Bangalore",
+    "Lady Hardinge Medical College, Delhi",
+    "Madras Medical College, Chennai",
+    "BJ Medical College, Ahmedabad",
+    "Institute of Medical Sciences, BHU",
+    "Government Medical College, Chandigarh"
+  ],
+  "Other": []
+};
 
-// Countries
+// Degree Types by Country
+const DEGREE_TYPES_BY_COUNTRY = {
+  "Australia": [
+    "Bachelor of Medicine / Bachelor of Surgery (MBBS)",
+    "Doctor of Medicine (MD)",
+    "Bachelor of Medical Science",
+    "Graduate Entry Medicine",
+    "Bachelor of Clinical Sciences",
+    "Other Medical Degree"
+  ],
+  "New Zealand": [
+    "Bachelor of Medicine and Bachelor of Surgery (MBChB)",
+    "Bachelor of Medical Science",
+    "Graduate Entry Medicine",
+    "Other Medical Degree"
+  ],
+  "United Kingdom": [
+    "Bachelor of Medicine, Bachelor of Surgery (MBBS/MBChB)",
+    "Bachelor of Medicine (BM)",
+    "Graduate Entry Medicine (GEM)",
+    "Bachelor of Medical Sciences (BMedSci)",
+    "Other Medical Degree"
+  ],
+  "United States": [
+    "Doctor of Medicine (MD)",
+    "Doctor of Osteopathic Medicine (DO)",
+    "Bachelor of Science in Medicine",
+    "Pre-Medical Studies",
+    "Other Medical Degree"
+  ],
+  "Canada": [
+    "Doctor of Medicine (MD)",
+    "Doctor of Medicine and Master of Surgery (MDCM)",
+    "Bachelor of Medical Sciences",
+    "Other Medical Degree"
+  ],
+  "Ireland": [
+    "Bachelor of Medicine, Bachelor of Surgery (MB BCh BAO)",
+    "Graduate Entry Medicine",
+    "Bachelor of Medical Science",
+    "Other Medical Degree"
+  ],
+  "Singapore": [
+    "Bachelor of Medicine and Bachelor of Surgery (MBBS)",
+    "Doctor of Medicine (MD)",
+    "Graduate Entry Medicine",
+    "Other Medical Degree"
+  ],
+  "Malaysia": [
+    "Bachelor of Medicine and Bachelor of Surgery (MBBS)",
+    "Doctor of Medicine (MD)",
+    "Bachelor of Medical Science",
+    "Other Medical Degree"
+  ],
+  "India": [
+    "Bachelor of Medicine and Bachelor of Surgery (MBBS)",
+    "Bachelor of Dental Surgery (BDS)",
+    "Bachelor of Ayurvedic Medicine and Surgery (BAMS)",
+    "Bachelor of Homeopathic Medicine and Surgery (BHMS)",
+    "Other Medical Degree"
+  ],
+  "Other": [
+    "Bachelor of Medicine / Bachelor of Surgery (MBBS)",
+    "Doctor of Medicine (MD)",
+    "Graduate Entry Medicine",
+    "Other Medical Degree"
+  ]
+};
+
+// Countries list
 const COUNTRIES = [
   "Australia",
   "New Zealand",
@@ -60,15 +267,6 @@ const COUNTRIES = [
   "Malaysia",
   "India",
   "Other"
-];
-
-// Degree Types
-const DEGREE_TYPES = [
-  "Bachelor of Medicine / Bachelor of Surgery (MBBS)",
-  "Doctor of Medicine (MD)",
-  "Bachelor of Medical Science",
-  "Graduate Entry Medicine",
-  "Other Medical Degree"
 ];
 
 const LoginPage = () => {
@@ -88,8 +286,26 @@ const LoginPage = () => {
   const [forgotMessage, setForgotMessage] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   
+  // Get institutions and degree types based on selected country
+  const [availableInstitutions, setAvailableInstitutions] = useState(INSTITUTIONS_BY_COUNTRY["Australia"]);
+  const [availableDegreeTypes, setAvailableDegreeTypes] = useState(DEGREE_TYPES_BY_COUNTRY["Australia"]);
+  
   const { login, register } = useAuth();
   const navigate = useNavigate();
+
+  // Update institutions and degree types when country changes
+  useEffect(() => {
+    const institutions = INSTITUTIONS_BY_COUNTRY[country] || [];
+    const degreeTypes = DEGREE_TYPES_BY_COUNTRY[country] || DEGREE_TYPES_BY_COUNTRY["Other"];
+    
+    setAvailableInstitutions(institutions);
+    setAvailableDegreeTypes(degreeTypes);
+    
+    // Reset selections when country changes
+    setInstitution('');
+    setDegreeType('');
+    setCustomInstitution('');
+  }, [country]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -235,7 +451,7 @@ const LoginPage = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-lg shadow-2xl p-6">
+        <div className="bg-white rounded-lg shadow-2xl p-6 max-h-[80vh] overflow-y-auto">
           <div className="mb-4">
             <div className="flex space-x-2 bg-gray-100 rounded-lg p-1">
               <button
@@ -297,20 +513,32 @@ const LoginPage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Institution/University *
                   </label>
-                  <select
-                    value={institution}
-                    onChange={(e) => setInstitution(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    required
-                  >
-                    <option value="">Select your institution</option>
-                    {AUSTRALIAN_UNIVERSITIES.map(uni => (
-                      <option key={uni} value={uni}>{uni}</option>
-                    ))}
-                  </select>
+                  {availableInstitutions.length > 0 ? (
+                    <select
+                      value={institution}
+                      onChange={(e) => setInstitution(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      required
+                    >
+                      <option value="">Select your institution</option>
+                      {availableInstitutions.map(uni => (
+                        <option key={uni} value={uni}>{uni}</option>
+                      ))}
+                      <option value="Other">Other</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={customInstitution}
+                      onChange={(e) => setCustomInstitution(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="Enter your institution name"
+                      required
+                    />
+                  )}
                 </div>
 
-                {institution === 'Other' && (
+                {institution === 'Other' && availableInstitutions.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Institution Name *
@@ -337,7 +565,7 @@ const LoginPage = () => {
                     required
                   >
                     <option value="">Select degree type</option>
-                    {DEGREE_TYPES.map(degree => (
+                    {availableDegreeTypes.map(degree => (
                       <option key={degree} value={degree}>{degree}</option>
                     ))}
                   </select>
