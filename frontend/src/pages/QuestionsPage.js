@@ -412,7 +412,7 @@ const QuestionsPage = () => {
             <div className="text-6xl mb-4">⏰</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Daily Limit Reached</h2>
             <p className="text-gray-600 mb-6">
-              You've reached your daily limit of 50 questions. Subscribe to get unlimited access to all questions!
+              You&apos;ve reached your daily limit of 50 questions. Subscribe to get unlimited access to all questions!
             </p>
             <div className="flex justify-center gap-4">
               <button
