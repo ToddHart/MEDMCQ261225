@@ -60,6 +60,9 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    institution: Optional[str] = None
+    current_year: Optional[int] = None
+    degree_type: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -69,6 +72,9 @@ class User(UserBase):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    institution: Optional[str] = None
+    current_year: Optional[int] = None
+    degree_type: Optional[str] = None
     subscription_tier: SubscriptionTier = SubscriptionTier.FREE
     subscription_status: Optional[str] = "free"
     subscription_plan: Optional[str] = None
