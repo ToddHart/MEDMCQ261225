@@ -439,6 +439,10 @@ async def get_questions(
     # Limit results
     questions = questions[:limit]
     
+    # Track daily usage for non-subscribers
+    if not is_subscriber and len(questions) > 0:
+        await increment_daily_usage(user_id, len(questions))
+    
     # Randomize answer options for each question
     randomized_questions = []
     for q in questions:
