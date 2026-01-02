@@ -1,17 +1,92 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+// Australian Universities
+const AUSTRALIAN_UNIVERSITIES = [
+  "Australian National University",
+  "Bond University",
+  "Charles Darwin University",
+  "Charles Sturt University",
+  "CQUniversity Australia",
+  "Curtin University",
+  "Deakin University",
+  "Edith Cowan University",
+  "Federation University Australia",
+  "Flinders University",
+  "Griffith University",
+  "James Cook University",
+  "La Trobe University",
+  "Macquarie University",
+  "Monash University",
+  "Murdoch University",
+  "Queensland University of Technology",
+  "RMIT University",
+  "Southern Cross University",
+  "Swinburne University of Technology",
+  "University of Adelaide",
+  "University of Canberra",
+  "University of Melbourne",
+  "University of New England",
+  "University of New South Wales",
+  "University of Newcastle",
+  "University of Notre Dame Australia",
+  "University of Queensland",
+  "University of South Australia",
+  "University of Southern Queensland",
+  "University of Sydney",
+  "University of Tasmania",
+  "University of Technology Sydney",
+  "University of the Sunshine Coast",
+  "University of Western Australia",
+  "University of Wollongong",
+  "Victoria University",
+  "Western Sydney University",
+  "Other"
+];
+
+// Countries
+const COUNTRIES = [
+  "Australia",
+  "New Zealand",
+  "United Kingdom",
+  "United States",
+  "Canada",
+  "Ireland",
+  "Singapore",
+  "Malaysia",
+  "India",
+  "Other"
+];
+
+// Degree Types
+const DEGREE_TYPES = [
+  "Bachelor of Medicine / Bachelor of Surgery (MBBS)",
+  "Doctor of Medicine (MD)",
+  "Bachelor of Medical Science",
+  "Graduate Entry Medicine",
+  "Other Medical Degree"
+];
 
 const LoginPage = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [institution, setInstitution] = useState('');
+  const [customInstitution, setCustomInstitution] = useState('');
+  const [currentYear, setCurrentYear] = useState('');
+  const [degreeType, setDegreeType] = useState('');
+  const [country, setCountry] = useState('Australia');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   
   const { login, register } = useAuth();
   const navigate = useNavigate();
@@ -26,7 +101,14 @@ const LoginPage = () => {
       if (isLogin) {
         result = await login(email, password);
       } else {
-        result = await register(email, password, fullName);
+        // Include additional registration fields
+        const finalInstitution = institution === 'Other' ? customInstitution : institution;
+        result = await register(email, password, fullName, {
+          institution: finalInstitution,
+          current_year: currentYear ? parseInt(currentYear) : null,
+          degree_type: degreeType,
+          country: country
+        });
       }
 
       if (result.success) {
@@ -53,22 +135,26 @@ const LoginPage = () => {
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setForgotMessage('');
+    setForgotLoading(true);
     
     if (!forgotEmail) {
       setForgotMessage('Please enter your email address.');
+      setForgotLoading(false);
       return;
     }
 
-    // Show success message regardless (for security - don't reveal if email exists)
-    setForgotMessage('If an account exists with this email, you will receive password reset instructions shortly.');
-    
-    // In a real implementation, this would call an API endpoint
-    // For now, we just show the message
-    setTimeout(() => {
-      setShowForgotPassword(false);
-      setForgotEmail('');
-      setForgotMessage('');
-    }, 5000);
+    try {
+      await axios.post(`${BACKEND_URL}/api/auth/forgot-password`, {
+        email: forgotEmail
+      });
+      
+      setForgotMessage('If an account exists with this email, you will receive password reset instructions shortly.');
+    } catch (error) {
+      // Still show success message for security (don't reveal if email exists)
+      setForgotMessage('If an account exists with this email, you will receive password reset instructions shortly.');
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   // Forgot Password Modal
@@ -110,9 +196,10 @@ const LoginPage = () => {
 
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                disabled={forgotLoading}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
               >
-                Send Reset Instructions
+                {forgotLoading ? 'Sending...' : 'Send Reset Instructions'}
               </button>
 
               <button
@@ -134,10 +221,10 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 px-4 py-8">
       <div className="max-w-md w-full">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4">
             <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -148,8 +235,8 @@ const LoginPage = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-lg shadow-2xl p-8">
-          <div className="mb-6">
+        <div className="bg-white rounded-lg shadow-2xl p-6">
+          <div className="mb-4">
             <div className="flex space-x-2 bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setIsLogin(true)}
@@ -174,46 +261,139 @@ const LoginPage = () => {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Country *
+                  </label>
+                  <select
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    required
+                  >
+                    {COUNTRIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Institution/University *
+                  </label>
+                  <select
+                    value={institution}
+                    onChange={(e) => setInstitution(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    required
+                  >
+                    <option value="">Select your institution</option>
+                    {AUSTRALIAN_UNIVERSITIES.map(uni => (
+                      <option key={uni} value={uni}>{uni}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {institution === 'Other' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Institution Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={customInstitution}
+                      onChange={(e) => setCustomInstitution(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="Enter your institution name"
+                      required
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Degree Type *
+                  </label>
+                  <select
+                    value={degreeType}
+                    onChange={(e) => setDegreeType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    required
+                  >
+                    <option value="">Select degree type</option>
+                    {DEGREE_TYPES.map(degree => (
+                      <option key={degree} value={degree}>{degree}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Year of Study *
+                  </label>
+                  <select
+                    value={currentYear}
+                    onChange={(e) => setCurrentYear(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    required
+                  >
+                    <option value="">Select year</option>
+                    <option value="1">Year 1</option>
+                    <option value="2">Year 2</option>
+                    <option value="3">Year 3</option>
+                    <option value="4">Year 4</option>
+                    <option value="5">Year 5</option>
+                    <option value="6">Year 6</option>
+                    <option value="7">Year 7+</option>
+                  </select>
+                </div>
+              </>
             )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+                Email *
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                Password *
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 required
+                minLength={6}
               />
+              {!isLogin && (
+                <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+              )}
             </div>
 
             {error && (
