@@ -307,9 +307,15 @@ const LoginPage = () => {
     setCustomInstitution('');
   }, [country]);
 
+  // Clear error when user starts typing or clicks on form fields
+  const clearError = () => {
+    if (error) {
+      setError('');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
