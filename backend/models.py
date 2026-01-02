@@ -63,6 +63,7 @@ class UserCreate(UserBase):
     institution: Optional[str] = None
     current_year: Optional[int] = None
     degree_type: Optional[str] = None
+    country: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -75,6 +76,7 @@ class User(UserBase):
     institution: Optional[str] = None
     current_year: Optional[int] = None
     degree_type: Optional[str] = None
+    country: Optional[str] = None
     subscription_tier: SubscriptionTier = SubscriptionTier.FREE
     subscription_status: Optional[str] = "free"
     subscription_plan: Optional[str] = None
