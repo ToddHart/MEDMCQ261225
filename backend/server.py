@@ -80,7 +80,8 @@ async def register(user_data: UserCreate):
         full_name=user_data.full_name,
         institution=user_data.institution,
         current_year=user_data.current_year,
-        degree_type=user_data.degree_type
+        degree_type=user_data.degree_type,
+        country=user_data.country
     )
     
     # Hash password and store separately
