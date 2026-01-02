@@ -536,6 +536,19 @@ async def submit_answer(
     user_id: str = Depends(get_current_user)
 ):
     """Submit an answer and update progress"""
+    # Check daily limit for non-subscribers BEFORE processing the answer
+    can_continue, questions_remaining, is_subscriber = await check_daily_question_limit(user_id)
+    
+    if not can_continue:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Daily question limit reached. Subscribe to get unlimited access!"
+        )
+    
+    # Increment daily usage for non-subscribers
+    if not is_subscriber:
+        await increment_daily_usage(user_id, 1)
+    
     # Get question
     question = await db.questions.find_one({"id": answer.question_id}, {"_id": 0})
     if not question:
@@ -596,7 +609,8 @@ async def submit_answer(
             question_obj.category.value,
             CategoryProgress(category=question_obj.category)
         ).current_difficulty,
-        "current_streak": updated_progress.current_streak
+        "current_streak": updated_progress.current_streak,
+        "questions_remaining": questions_remaining - 1 if not is_subscriber else -1
     }
 
 @api_router.post("/session/finish")
