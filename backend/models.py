@@ -64,6 +64,7 @@ class UserCreate(UserBase):
     current_year: Optional[int] = None
     degree_type: Optional[str] = None
     country: Optional[str] = None
+    marketing_consent: bool = False  # Must accept marketing for free tier
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -88,6 +89,9 @@ class User(UserBase):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_active: bool = True
     is_admin: bool = False
+    email_verified: bool = False  # Email verification status
+    marketing_consent: bool = False  # Marketing consent for free users
+    verification_token: Optional[str] = None  # For email verification
 
 # Token Models
 class Token(BaseModel):
