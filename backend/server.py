@@ -1593,6 +1593,7 @@ async def admin_grant_access(
         {"$set": {
             "subscription_status": "free_grant",
             "subscription_plan": subscription_plan,
+            "subscription_tier": subscription_plan,  # Also set tier for consistency
             "subscription_start": datetime.utcnow().isoformat(),
             "subscription_end": end_date.isoformat(),
             "ai_max_daily_uses": ai_limits.get(subscription_plan, 10)
