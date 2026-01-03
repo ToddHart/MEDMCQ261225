@@ -338,32 +338,32 @@ const SubscriptionPage = () => {
               </thead>
               <tbody>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-medium">Questions Access</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
+                  <td className="py-3 px-4 font-medium">Questions/Day</td>
+                  <td className="text-center py-3 px-4">200</td>
+                  <td className="text-center py-3 px-4">500</td>
                   <td className="text-center py-3 px-4">Unlimited</td>
                   <td className="text-center py-3 px-4">Unlimited</td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-medium">Question Import</td>
-                  <td className="text-center py-3 px-4">100 limit</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
+                  <td className="py-3 px-4 font-medium">Question Import/Week</td>
+                  <td className="text-center py-3 px-4">200</td>
+                  <td className="text-center py-3 px-4">500</td>
+                  <td className="text-center py-3 px-4">1000</td>
+                  <td className="text-center py-3 px-4">2500</td>
                 </tr>
                 <tr className="border-b border-gray-100 bg-purple-50">
                   <td className="py-3 px-4 font-bold">AI Question Generation</td>
                   <td className="text-center py-3 px-4 text-gray-400">✗ None</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">5/day</td>
                   <td className="text-center py-3 px-4 font-semibold text-purple-700">10/day</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">15/day</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">25/day</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">10/day</td>
                 </tr>
                 <tr className="border-b border-gray-100 bg-purple-50">
                   <td className="py-3 px-4 font-bold">Private Storage</td>
                   <td className="text-center py-3 px-4 text-gray-400">✗ None</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">250MB</td>
                   <td className="text-center py-3 px-4 font-semibold text-purple-700">500MB</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">2GB</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">5GB</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">750MB</td>
                 </tr>
                 <tr className="border-b border-gray-100">
                   <td className="py-3 px-4 font-medium">Analytics</td>
