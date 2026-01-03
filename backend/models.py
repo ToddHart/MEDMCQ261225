@@ -144,6 +144,7 @@ class UserProgress(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
     category_progress: Dict[str, CategoryProgress] = {}
+    subcategory_tracking: Optional[Dict[str, Any]] = {}  # For 3/4 complexity progression tracking
     total_questions_answered: int = 0
     total_correct: int = 0
     highest_streak: int = 0
