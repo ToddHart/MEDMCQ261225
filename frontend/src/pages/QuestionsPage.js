@@ -491,8 +491,8 @@ const QuestionsPage = () => {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
-        {/* Daily Limit Banner for Non-Subscribers */}
-        {dailyLimitStatus && !dailyLimitStatus.is_subscriber && (
+        {/* Daily Limit Banner - Show for users with limits (free, weekly, monthly) */}
+        {dailyLimitStatus && dailyLimitStatus.daily_limit !== -1 && (
           <div className="rounded-lg p-3 mb-4 bg-amber-100 border border-amber-300">
             <div className="flex items-center justify-between">
               <div>
@@ -500,12 +500,19 @@ const QuestionsPage = () => {
                   📊 {dailyLimitStatus.questions_remaining} questions remaining today
                 </span>
                 <span className="text-amber-700 text-sm ml-2">
-                  (Free tier: {dailyLimitStatus.daily_limit} questions/day)
+                  ({dailyLimitStatus.daily_limit} questions/day limit)
                 </span>
               </div>
-              <a href="/subscription" className="text-sm bg-amber-600 text-white px-3 py-1 rounded hover:bg-amber-700 font-medium">
-                Get Unlimited Access
-              </a>
+              {!dailyLimitStatus.is_subscriber && (
+                <a href="/subscription" className="text-sm bg-amber-600 text-white px-3 py-1 rounded hover:bg-amber-700 font-medium">
+                  Get Unlimited Access
+                </a>
+              )}
+              {dailyLimitStatus.is_subscriber && (
+                <a href="/subscription" className="text-sm bg-amber-600 text-white px-3 py-1 rounded hover:bg-amber-700 font-medium">
+                  Upgrade Plan
+                </a>
+              )}
             </div>
           </div>
         )}
