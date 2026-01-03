@@ -118,6 +118,7 @@ class Question(QuestionBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: Optional[str] = None  # None means global question
     source: str = "imported"  # imported, ai-generated, sample
+    subcategory: Optional[str] = None  # For subcategory filtering
     created_at: datetime = Field(default_factory=datetime.utcnow)
     verified: bool = False
 
