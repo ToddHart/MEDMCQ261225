@@ -264,7 +264,7 @@ const HomePage = () => {
             <div className="text-sm text-gray-600">Imports/Week</div>
           </div>
           <div className="text-center p-4 bg-purple-50 rounded-lg">
-            <div className="text-3xl font-bold text-purple-600 mb-2">{limits.storage || 'None'}</div>
+            <div className="text-3xl font-bold text-purple-600 mb-2">{limits.storage === '0' ? 'None' : limits.storage}</div>
             <div className="text-sm text-gray-600">Private Storage</div>
           </div>
           <div className="text-center p-4 bg-orange-50 rounded-lg">
