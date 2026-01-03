@@ -279,6 +279,7 @@ const LoginPage = () => {
   const [currentYear, setCurrentYear] = useState('');
   const [degreeType, setDegreeType] = useState('');
   const [country, setCountry] = useState('Australia');
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -323,13 +324,21 @@ const LoginPage = () => {
       if (isLogin) {
         result = await login(email, password);
       } else {
+        // Validate marketing consent for registration
+        if (!marketingConsent) {
+          setError('You must accept the marketing communications disclaimer to create a free account.');
+          setLoading(false);
+          return;
+        }
+        
         // Include additional registration fields
         const finalInstitution = institution === 'Other' ? customInstitution : institution;
         result = await register(email, password, fullName, {
           institution: finalInstitution,
           current_year: currentYear ? parseInt(currentYear) : null,
           degree_type: degreeType,
-          country: country
+          country: country,
+          marketing_consent: marketingConsent
         });
       }
 
