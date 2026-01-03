@@ -1582,10 +1582,29 @@ async def admin_grant_access(
     # AI limits based on subscription (50% of cost budget)
     ai_limits = {
         'weekly': 0,
-        'monthly': 10,
-        'quarterly': 15,
-        'annual': 25
+        'monthly': 5,
+        'quarterly': 10,
+        'annual': 10
     }
+    
+    # Get user's current subscription for history
+    target_user = await db.users.find_one({"id": target_user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log subscription history
+    await db.subscription_history.insert_one({
+        "user_id": target_user_id,
+        "action": "upgrade",
+        "from_plan": target_user.get('subscription_plan') or 'free',
+        "to_plan": subscription_plan,
+        "granted_by": user_id,
+        "grant_type": "free_grant",
+        "start_date": datetime.utcnow().isoformat(),
+        "end_date": end_date.isoformat(),
+        "duration_days": duration_days,
+        "timestamp": datetime.utcnow().isoformat()
+    })
     
     # Update user
     await db.users.update_one(
