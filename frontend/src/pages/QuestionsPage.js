@@ -69,12 +69,14 @@ const QuestionsPage = () => {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [timerInterval, setTimerInterval] = useState(null);
   
-  // Filters - Multi-category selection
+  // Filters - Multi-category and subcategory selection
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState([]);
   const [difficulty, setDifficulty] = useState('all');
   const [year, setYear] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
   // Complexity tier labels
   const complexityLabels = {
