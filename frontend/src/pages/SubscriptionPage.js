@@ -419,7 +419,7 @@ const SubscriptionPage = () => {
         <div className="text-center text-gray-500 text-sm">
           <p className="font-semibold">ABUNDITA INVESTMENTS PTY LTD</p>
           <p>ABN: 55 100 379 299</p>
-          <p>13 Forest View Close, Bonville NSW 2450, Australia</p>
+          <p>2/24 Edgar St, Coffs Harbour NSW 2450, Australia</p>
         </div>
       </div>
     </Layout>
