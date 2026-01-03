@@ -64,7 +64,8 @@ export const AuthProvider = ({ children }) => {
         institution: additionalFields.institution,
         current_year: additionalFields.current_year,
         degree_type: additionalFields.degree_type,
-        country: additionalFields.country
+        country: additionalFields.country,
+        marketing_consent: additionalFields.marketing_consent || false
       });
       // Auto-login after registration
       return await login(email, password);
