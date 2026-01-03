@@ -200,8 +200,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Remove Made with Emergent badge"
-    - "Source filter - Uploaded first"
     - "Category/Subcategory selection"
   stuck_tasks: []
   test_all: false
@@ -224,3 +222,22 @@ agent_communication:
       
       Test credentials: demo@medmcq.com / demo123
       Please verify the badge is removed and test the filter dropdown.
+  - agent: "testing"
+    message: |
+      TESTING COMPLETE - Results Summary:
+      
+      ✅ PASSED:
+      1. "Made with Emergent" badge removal - Verified across login, home, and questions pages
+      2. Source filter order - Correct behavior for non-unlocked users (All Questions → Priority Bank)
+      3. Subcategory expansion - Cardiology subcategories display correctly
+      4. Multiple category selection - No limits, 5+ categories selectable with proper tag display
+      
+      ❌ FAILED:
+      1. Category alphabetical sorting - Categories NOT in alphabetical order in UI despite sort code in line 43
+      
+      ISSUE DETAILS:
+      - Found categories in wrong order: ['Anatomy', 'anatomy', 'Gastroenterology', 'Endocrinology', 'Neurology', 'Surgery', 'Dermatology', 'Cardiology']
+      - Expected alphabetical: ['Anatomy', 'Cardiology', 'Dermatology', 'Endocrinology', 'Gastroenterology', 'Neurology', 'Surgery']
+      - Code has .sort() at line 43 but UI doesn't reflect alphabetical order
+      
+      RECOMMENDATION: Fix category sorting implementation in QuestionsPage.js
