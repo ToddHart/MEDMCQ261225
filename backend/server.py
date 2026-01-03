@@ -553,17 +553,17 @@ async def submit_answer(
     user_id: str = Depends(get_current_user)
 ):
     """Submit an answer and update progress"""
-    # Check daily limit for non-subscribers BEFORE processing the answer
-    can_continue, questions_remaining, is_subscriber = await check_daily_question_limit(user_id)
+    # Check daily limit based on subscription tier BEFORE processing the answer
+    can_continue, questions_remaining, is_subscriber, daily_limit = await check_daily_question_limit(user_id)
     
     if not can_continue:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Daily question limit reached. Subscribe to get unlimited access!"
+            detail="Daily question limit reached. Upgrade your subscription for more questions!"
         )
     
-    # Increment daily usage for non-subscribers
-    if not is_subscriber:
+    # Increment daily usage for users with limits (not quarterly/annual)
+    if daily_limit != -1:
         await increment_daily_usage(user_id, 1)
     
     # Get question
