@@ -278,12 +278,23 @@ async def check_daily_question_limit(user_id: str) -> tuple:
     if not user:
         return False, 0, False, 50
     
-    # Get subscription tier
-    subscription_tier = user.get('subscription_tier', 'free') or 'free'
-    is_subscriber = subscription_tier != 'free'
+    # Check subscription status and plan
+    # The system uses subscription_plan for the tier name (weekly, monthly, etc.)
+    # and subscription_status for active/free_grant/free
+    subscription_status = user.get('subscription_status', 'free')
+    subscription_plan = user.get('subscription_plan', 'free') or 'free'
+    
+    # User is a subscriber if they have an active subscription or free grant
+    is_subscriber = subscription_status in ['active', 'free_grant'] and subscription_plan != 'free'
+    
+    # Determine the effective tier for limits
+    if is_subscriber:
+        effective_tier = subscription_plan
+    else:
+        effective_tier = 'free'
     
     # Get daily limit for this tier
-    daily_limit = DAILY_LIMITS_BY_TIER.get(subscription_tier, 50)
+    daily_limit = DAILY_LIMITS_BY_TIER.get(effective_tier, 50)
     
     # Unlimited tiers (quarterly and annual)
     if daily_limit == -1:
