@@ -760,7 +760,7 @@ const QuestionsPage = () => {
 
               <button
                 onClick={handleFinishSession}
-                className="mt-4 w-full py-2 bg-red-100 text-red-700 rounded-lg text-sm font-bold hover:bg-red-200 transition-colors"
+                className="mt-4 w-full px-8 py-3 bg-purple-100 text-purple-700 border-2 border-purple-500 rounded-lg font-bold hover:bg-purple-200 transition-colors"
               >
                 Finish Session
               </button>

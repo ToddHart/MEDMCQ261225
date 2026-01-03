@@ -59,9 +59,8 @@ const ContactPage = () => {
         <div className="mt-8 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold mb-4">Other Ways to Reach Us</h2>
           <div className="space-y-3">
-            <p><strong>Email:</strong> support@medmcq.com</p>
-            <p><strong>Phone:</strong> +1 (555) 123-4567</p>
-            <p><strong>Address:</strong> 123 Medical Plaza, Suite 400, Boston, MA 02115</p>
+            <p><strong>Email:</strong> support@medmcq.com.au</p>
+            <p><strong>Address:</strong> 2/24 Edgar St, Coffs Harbour NSW 2450, Australia</p>
           </div>
         </div>
       </div>
