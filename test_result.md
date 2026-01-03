@@ -103,53 +103,51 @@
 #====================================================================================================
 
 user_problem_statement: |
-  MedMCQ application with the following new requirements:
-  1. Questions page: Swap Report Issue and Next Question button positions
-  2. Report Issue button should have red styling (like incorrect answer)
-  3. Answer labels should always be sequential (A,B,C,D) not skip letters
-  4. Questions should be filtered by user's study year
-  5. Non-subscribers limited to 50 questions per day
-  6. Complexity progression - start at foundational level
+  MedMCQ application updates:
+  1. Remove "Made with Emergent" badge from all pages
+  2. Complexity progression: 3 correct from 4 to advance, 2 wrong to go down (unless foundational)
+  3. Source filter: "Uploaded" as top choice, categories alphabetically, subcategories when category selected
+  4. No limit on number of categories/subcategories chosen
 
 backend:
+  - task: "Complexity progression (3/4 rule)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/adaptive_learning.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated AdaptiveLearningEngine to track last 4 answers per subcategory. 3 correct = level up, 2 wrong = level down (min foundational)"
+
   - task: "Daily question limit for non-subscribers (50/day)"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
-        comment: "Implemented check_daily_question_limit, increment_daily_usage functions and /api/questions/daily-limit endpoint"
-
-  - task: "Year-based question filtering"
-    implemented: true
-    working: "NA"
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: true
-    status_history:
-      - working: "NA"
-        agent: "main"
-        comment: "Questions filtered by user's current_year. Default to year 2 if not set."
-
-  - task: "Complexity progression by category"
-    implemented: true
-    working: "NA"
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: true
-    status_history:
-      - working: "NA"
-        agent: "main"
-        comment: "Added get_user_category_progress function. Start at foundational level."
+        comment: "Fixed - now tracks questions ANSWERED not FETCHED"
 
 frontend:
-  - task: "Swap Report Issue and Next Question buttons"
+  - task: "Remove Made with Emergent badge"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/public/index.html"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Removed badge HTML from index.html, updated title and description"
+
+  - task: "Source filter - Uploaded first"
     implemented: true
     working: "NA"
     file: "/app/frontend/src/pages/QuestionsPage.js"
@@ -159,9 +157,9 @@ frontend:
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Swapped button positions - Next Question on left, Report Issue on right"
+        comment: "Reordered source dropdown - My Uploaded first, then All Questions, Priority Bank, etc."
 
-  - task: "Report Issue button red styling"
+  - task: "Category/Subcategory selection"
     implemented: true
     working: "NA"
     file: "/app/frontend/src/pages/QuestionsPage.js"
@@ -171,43 +169,31 @@ frontend:
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Changed to red border, light red background (bg-red-100, border-red-500)"
+        comment: "Categories sorted alphabetically with subcategories. Expandable dropdown shows subcategories when category clicked."
 
-  - task: "Sequential answer labels (A,B,C,D)"
+  - task: "Button positions and styling"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/frontend/src/pages/QuestionsPage.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
-      - working: "NA"
-        agent: "main"
-        comment: "Filter out nan/empty options first, then assign sequential labels using displayIndex"
-
-  - task: "Daily limit banner for non-subscribers"
-    implemented: true
-    working: "NA"
-    file: "/app/frontend/src/pages/QuestionsPage.js"
-    stuck_count: 0
-    priority: "medium"
-    needs_retesting: true
-    status_history:
-      - working: "NA"
-        agent: "main"
-        comment: "Added amber banner showing questions remaining and daily limit reached screen"
+      - working: true
+        agent: "testing"
+        comment: "Verified - Next Question on left, Report Issue (red) on right"
 
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: true
 
 test_plan:
   current_focus:
-    - "Swap Report Issue and Next Question buttons"
-    - "Report Issue button red styling"
-    - "Sequential answer labels (A,B,C,D)"
+    - "Remove Made with Emergent badge"
+    - "Source filter - Uploaded first"
+    - "Category/Subcategory selection"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -215,13 +201,17 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      Implemented all requested features for Questions page:
-      1. Swapped button positions - Next Question now on left, Report Issue on right
-      2. Report Issue has red styling (border-red-500, bg-red-100)
-      3. Answer options now use sequential labels - filter out empty/nan first, then A,B,C,D
-      4. Backend filters questions by user's study year (defaults to 2 if not set)
-      5. Non-subscribers limited to 50 questions/day with banner and limit screen
-      6. Complexity progression starts at foundational level
+      Implemented all requested changes:
+      1. Removed "Made with Emergent" badge from index.html
+      2. Updated complexity progression in adaptive_learning.py:
+         - Tracks last 4 answers per subcategory
+         - 3 correct from 4 = level up
+         - 2 wrong at same level = level down (min foundational)
+      3. Updated QuestionsPage.js filters:
+         - "My Uploaded" now first option in source
+         - Categories sorted alphabetically with Australian spelling
+         - Subcategories shown when category expanded
+         - No limit on selections
       
       Test credentials: demo@medmcq.com / demo123
-      Please test the Questions page UI changes first.
+      Please verify the badge is removed and test the filter dropdown.
