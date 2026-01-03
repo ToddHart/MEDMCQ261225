@@ -539,7 +539,7 @@ const QuestionsPage = () => {
               <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-blue-500">Filters</h3>
               
               <div className="space-y-3">
-                {/* Source Filter */}
+                {/* Source Filter - Uploaded first */}
                 <div>
                   <label className="block text-xs font-bold text-gray-800 mb-1">SOURCE</label>
                   <select
@@ -548,13 +548,15 @@ const QuestionsPage = () => {
                     className="w-full px-2 py-2 border-2 border-gray-300 rounded text-xs font-medium bg-gray-50"
                     disabled={!unlockStatus?.full_bank_unlocked}
                   >
+                    {unlockStatus?.full_bank_unlocked && (
+                      <option value="imported">My Uploaded</option>
+                    )}
                     <option value="all">All Questions</option>
                     <option value="une_priority">Priority Bank</option>
                     {unlockStatus?.full_bank_unlocked && (
                       <>
                         <option value="shared">Shared Library</option>
                         <option value="sample">Sample Questions</option>
-                        <option value="imported">My Imported</option>
                       </>
                     )}
                   </select>
@@ -581,10 +583,10 @@ const QuestionsPage = () => {
                   </select>
                 </div>
 
-                {/* Multi-Category Selection */}
+                {/* Category & Subcategory Selection */}
                 <div>
                   <label className="block text-xs font-bold text-gray-800 mb-1">
-                    SUBJECTS {selectedCategories.length > 0 && `(${selectedCategories.length})`}
+                    CATEGORIES {selectedCategories.length > 0 && `(${selectedCategories.length})`}
                   </label>
                   <div className="relative">
                     <button
@@ -593,8 +595,8 @@ const QuestionsPage = () => {
                     >
                       <span>
                         {selectedCategories.length === 0 
-                          ? 'All Subjects' 
-                          : `${selectedCategories.length} selected`}
+                          ? 'All Categories' 
+                          : `${selectedCategories.length} categor${selectedCategories.length === 1 ? 'y' : 'ies'}`}
                       </span>
                       <svg className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -602,37 +604,84 @@ const QuestionsPage = () => {
                     </button>
                     
                     {showCategoryDropdown && (
-                      <div className="absolute z-50 mt-1 w-full bg-white border-2 border-green-300 rounded shadow-lg max-h-60 overflow-y-auto">
-                        <div className="p-2 border-b sticky top-0 bg-white">
+                      <div className="absolute z-50 mt-1 w-full bg-white border-2 border-green-300 rounded shadow-lg max-h-72 overflow-y-auto">
+                        <div className="p-2 border-b sticky top-0 bg-white flex justify-between items-center">
                           <button
                             onClick={handleClearCategories}
                             className="text-xs text-blue-600 hover:underline"
                           >
                             Clear All
                           </button>
+                          <span className="text-xs text-gray-500">Click category to see subcategories</span>
                         </div>
                         {CATEGORIES.map(cat => (
-                          <label
-                            key={cat.value}
-                            className="flex items-center px-2 py-1 hover:bg-green-50 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedCategories.includes(cat.value)}
-                              onChange={() => handleCategoryToggle(cat.value)}
-                              className="mr-2"
-                            />
-                            <span className="text-xs">{cat.label}</span>
-                          </label>
+                          <div key={cat.value} className="border-b border-gray-100 last:border-b-0">
+                            <div 
+                              className="flex items-center px-2 py-1.5 hover:bg-green-50 cursor-pointer"
+                              onClick={() => setExpandedCategory(expandedCategory === cat.value ? null : cat.value)}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedCategories.includes(cat.value)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleCategoryToggle(cat.value);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mr-2"
+                              />
+                              <span className="text-xs font-medium flex-1">{cat.label}</span>
+                              {cat.subcategories && cat.subcategories.length > 0 && (
+                                <svg 
+                                  className={`w-3 h-3 text-gray-400 transition-transform ${expandedCategory === cat.value ? 'rotate-180' : ''}`} 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              )}
+                            </div>
+                            {/* Subcategories */}
+                            {expandedCategory === cat.value && cat.subcategories && cat.subcategories.length > 0 && (
+                              <div className="pl-6 pb-1 bg-gray-50">
+                                {cat.subcategories.map(sub => (
+                                  <label
+                                    key={`${cat.value}-${sub}`}
+                                    className="flex items-center px-2 py-1 hover:bg-green-100 cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedSubcategories.includes(`${cat.value}:${sub}`)}
+                                      onChange={() => {
+                                        const key = `${cat.value}:${sub}`;
+                                        setSelectedSubcategories(prev => 
+                                          prev.includes(key) 
+                                            ? prev.filter(s => s !== key)
+                                            : [...prev, key]
+                                        );
+                                        // Also ensure parent category is selected
+                                        if (!selectedCategories.includes(cat.value)) {
+                                          handleCategoryToggle(cat.value);
+                                        }
+                                      }}
+                                      className="mr-2"
+                                    />
+                                    <span className="text-xs text-gray-600">{sub}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}
                   </div>
                   
-                  {/* Selected categories tags */}
-                  {selectedCategories.length > 0 && (
+                  {/* Selected categories and subcategories tags */}
+                  {(selectedCategories.length > 0 || selectedSubcategories.length > 0) && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {selectedCategories.slice(0, 3).map(cat => (
+                      {selectedCategories.slice(0, 2).map(cat => (
                         <span
                           key={cat}
                           className="px-2 py-0.5 bg-green-200 text-green-800 rounded-full text-xs flex items-center"
@@ -646,9 +695,23 @@ const QuestionsPage = () => {
                           </button>
                         </span>
                       ))}
-                      {selectedCategories.length > 3 && (
+                      {selectedSubcategories.slice(0, 2).map(sub => (
+                        <span
+                          key={sub}
+                          className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded-full text-xs flex items-center"
+                        >
+                          {sub.split(':')[1]}
+                          <button
+                            onClick={() => setSelectedSubcategories(prev => prev.filter(s => s !== sub))}
+                            className="ml-1 text-blue-600 hover:text-blue-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      {(selectedCategories.length + selectedSubcategories.length) > 4 && (
                         <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full text-xs">
-                          +{selectedCategories.length - 3} more
+                          +{(selectedCategories.length + selectedSubcategories.length) - 4} more
                         </span>
                       )}
                     </div>
