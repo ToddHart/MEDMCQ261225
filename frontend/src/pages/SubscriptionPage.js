@@ -10,11 +10,7 @@ const SubscriptionPage = () => {
   const [subscription, setSubscription] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
 
-  // AI limits based on subscription cost (50% of subscription goes to AI)
-  // Weekly $9.99 -> ~$5 AI budget -> ~3 uses/day
-  // Monthly $29.99 -> ~$15 AI budget -> ~10 uses/day  
-  // Quarterly $79.99 -> ~$40 AI budget -> ~15 uses/day
-  // Annual $249.99 -> ~$125 AI budget -> ~25 uses/day
+  // AI limits and features based on subscription tier
   const plans = [
     {
       id: 'weekly',
@@ -23,12 +19,12 @@ const SubscriptionPage = () => {
       priceValue: 9.99,
       period: 'per week',
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: '200 Questions/day', included: true },
         { text: 'Basic Analytics', included: true },
         { text: 'Exam Mode', included: true },
-        { text: 'Question Import (100 limit)', included: true },
+        { text: 'Question Import (200/week)', included: true },
         { text: 'AI Question Generation', included: false },
-        { text: 'Advanced Analytics', included: false },
+        { text: 'Private Storage', included: false },
         { text: 'Study Calendar', included: false },
         { text: 'Progress Reports', included: false },
       ],
@@ -41,12 +37,12 @@ const SubscriptionPage = () => {
       period: 'per month',
       popular: true,
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: '500 Questions/day', included: true },
         { text: 'Basic & Advanced Analytics', included: true },
         { text: 'Exam Mode', included: true },
-        { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
-        { text: '500MB Private Storage', included: true, highlight: true },
+        { text: 'Question Import (500/week)', included: true },
+        { text: 'AI Generation (5 uses/day)', included: true, highlight: true },
+        { text: '250MB Private Storage', included: true, highlight: true },
         { text: 'Study Calendar', included: true },
         { text: 'Progress Reports', included: true },
       ],
@@ -59,12 +55,12 @@ const SubscriptionPage = () => {
       period: 'every 3 months',
       savings: '11% OFF',
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: 'Unlimited Questions/day', included: true },
         { text: 'Full Analytics Suite', included: true },
         { text: 'Exam Mode + Custom Exams', included: true },
-        { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (15 uses/day)', included: true, highlight: true },
-        { text: '2GB Private Storage', included: true, highlight: true },
+        { text: 'Question Import (1000/week)', included: true },
+        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
+        { text: '500MB Private Storage', included: true, highlight: true },
         { text: 'Study Calendar & Tracking', included: true },
         { text: 'Detailed Progress Reports', included: true },
         { text: 'Priority Email Support', included: true },
@@ -79,12 +75,12 @@ const SubscriptionPage = () => {
       savings: '30% OFF',
       bestValue: true,
       features: [
-        { text: 'All Features Included', included: true },
+        { text: 'Unlimited Questions/day', included: true },
         { text: 'Full Analytics Suite', included: true },
         { text: 'Unlimited Exam Mode', included: true },
-        { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (25 uses/day)', included: true, highlight: true },
-        { text: '5GB Private Storage', included: true, highlight: true },
+        { text: 'Question Import (2500/week)', included: true },
+        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
+        { text: '1GB Private Storage', included: true, highlight: true },
         { text: 'Advanced AI Features', included: true, highlight: true },
         { text: 'Study Calendar & Insights', included: true },
         { text: 'Priority Support 24/7', included: true },
@@ -342,32 +338,32 @@ const SubscriptionPage = () => {
               </thead>
               <tbody>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-medium">Questions Access</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
+                  <td className="py-3 px-4 font-medium">Questions/Day</td>
+                  <td className="text-center py-3 px-4">200</td>
+                  <td className="text-center py-3 px-4">500</td>
                   <td className="text-center py-3 px-4">Unlimited</td>
                   <td className="text-center py-3 px-4">Unlimited</td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-medium">Question Import</td>
-                  <td className="text-center py-3 px-4">100 limit</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
+                  <td className="py-3 px-4 font-medium">Question Import/Week</td>
+                  <td className="text-center py-3 px-4">200</td>
+                  <td className="text-center py-3 px-4">500</td>
+                  <td className="text-center py-3 px-4">1000</td>
+                  <td className="text-center py-3 px-4">2500</td>
                 </tr>
                 <tr className="border-b border-gray-100 bg-purple-50">
                   <td className="py-3 px-4 font-bold">AI Question Generation</td>
                   <td className="text-center py-3 px-4 text-gray-400">✗ None</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">5/day</td>
                   <td className="text-center py-3 px-4 font-semibold text-purple-700">10/day</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">15/day</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">25/day</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">10/day</td>
                 </tr>
                 <tr className="border-b border-gray-100 bg-purple-50">
                   <td className="py-3 px-4 font-bold">Private Storage</td>
                   <td className="text-center py-3 px-4 text-gray-400">✗ None</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">250MB</td>
                   <td className="text-center py-3 px-4 font-semibold text-purple-700">500MB</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">2GB</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">5GB</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">1GB</td>
                 </tr>
                 <tr className="border-b border-gray-100">
                   <td className="py-3 px-4 font-medium">Analytics</td>
@@ -423,7 +419,7 @@ const SubscriptionPage = () => {
         <div className="text-center text-gray-500 text-sm">
           <p className="font-semibold">ABUNDITA INVESTMENTS PTY LTD</p>
           <p>ABN: 55 100 379 299</p>
-          <p>13 Forest View Close, Bonville NSW 2450, Australia</p>
+          <p>2/24 Edgar St, Coffs Harbour NSW 2450, Australia</p>
         </div>
       </div>
     </Layout>
