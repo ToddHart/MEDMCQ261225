@@ -1635,12 +1635,26 @@ async def admin_revoke_access(
     if not target_user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
     
+    # Get user's current subscription for history
+    target_user = await db.users.find_one({"id": target_user_id}, {"_id": 0})
+    if target_user and target_user.get('subscription_plan'):
+        # Log subscription history
+        await db.subscription_history.insert_one({
+            "user_id": target_user_id,
+            "action": "revoke",
+            "from_plan": target_user.get('subscription_plan'),
+            "to_plan": "free",
+            "revoked_by": user_id,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+    
     # Update user
     await db.users.update_one(
         {"id": target_user_id},
         {"$set": {
             "subscription_status": "free",
             "subscription_plan": None,
+            "subscription_tier": "free",
             "subscription_end": None,
             "ai_max_daily_uses": 0
         }}
