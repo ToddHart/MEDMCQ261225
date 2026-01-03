@@ -620,6 +620,9 @@ async def submit_answer(
         upsert=True
     )
     
+    # Calculate remaining questions (decrement by 1 if has limit)
+    new_remaining = questions_remaining - 1 if daily_limit != -1 else -1
+    
     return {
         "success": True,
         "current_difficulty": updated_progress.category_progress.get(
@@ -627,7 +630,8 @@ async def submit_answer(
             CategoryProgress(category=question_obj.category)
         ).current_difficulty,
         "current_streak": updated_progress.current_streak,
-        "questions_remaining": questions_remaining - 1 if not is_subscriber else -1
+        "questions_remaining": new_remaining,
+        "daily_limit": daily_limit
     }
 
 @api_router.post("/session/finish")
