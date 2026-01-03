@@ -253,25 +253,42 @@ async def get_user_unlock_status(user_id: str):
         return False, 0
     return progress.get('full_bank_unlocked', False), progress.get('qualifying_sessions_completed', 0)
 
+# Daily question limits by subscription tier
+DAILY_LIMITS_BY_TIER = {
+    'free': 50,
+    'weekly': 200,
+    'monthly': 500,
+    'quarterly': -1,  # Unlimited
+    'annual': -1,     # Unlimited
+}
+
 async def check_daily_question_limit(user_id: str) -> tuple:
     """
-    Check if user has exceeded their daily question limit.
-    Returns: (can_continue, questions_remaining, is_subscriber)
+    Check if user has exceeded their daily question limit based on subscription tier.
+    Returns: (can_continue, questions_remaining, is_subscriber, daily_limit)
+    
+    Tier limits:
+    - Free: 50/day
+    - Weekly: 200/day
+    - Monthly: 500/day
+    - Quarterly: Unlimited
+    - Annual: Unlimited
     """
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
-        return False, 0, False
+        return False, 0, False, 50
     
-    # Check if user is a paid subscriber
-    subscription_tier = user.get('subscription_tier', 'free')
-    is_subscriber = subscription_tier != 'free' and subscription_tier is not None
+    # Get subscription tier
+    subscription_tier = user.get('subscription_tier', 'free') or 'free'
+    is_subscriber = subscription_tier != 'free'
     
-    # Subscribers have unlimited access
-    if is_subscriber:
-        return True, -1, True
+    # Get daily limit for this tier
+    daily_limit = DAILY_LIMITS_BY_TIER.get(subscription_tier, 50)
     
-    # For free users, check daily limit (50 questions)
-    DAILY_LIMIT = 50
+    # Unlimited tiers (quarterly and annual)
+    if daily_limit == -1:
+        return True, -1, True, -1
+    
     today = datetime.utcnow().date().isoformat()
     
     # Get or create daily usage record
