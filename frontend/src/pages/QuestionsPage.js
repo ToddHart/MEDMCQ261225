@@ -202,6 +202,8 @@ const QuestionsPage = () => {
 
   const handleClearCategories = () => {
     setSelectedCategories([]);
+    setSelectedSubcategories([]);
+    setExpandedCategory(null);
   };
 
   const handleAnswerSelect = async (index) => {
