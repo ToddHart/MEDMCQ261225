@@ -641,6 +641,29 @@ const LoginPage = () => {
               )}
             </div>
 
+            {/* Marketing Consent - Required for registration */}
+            {!isLogin && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <label className="flex items-start cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={marketingConsent}
+                    onChange={(e) => setMarketingConsent(e.target.checked)}
+                    className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    required
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-semibold">Marketing Communications Disclaimer *</span>
+                    <br />
+                    <span className="text-xs text-gray-600">
+                      By creating a free account, I consent to receive promotional emails, newsletters, 
+                      and marketing communications from MedMCQ. I understand that I can unsubscribe at any time.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
+
             {error && (
               <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
                 {error}
@@ -649,7 +672,7 @@ const LoginPage = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!isLogin && !marketingConsent)}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
               {loading ? 'Please wait...' : isLogin ? 'Login' : 'Register'}
