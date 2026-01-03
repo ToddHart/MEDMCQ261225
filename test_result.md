@@ -137,39 +137,48 @@ backend:
 frontend:
   - task: "Remove Made with Emergent badge"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/frontend/public/index.html"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Removed badge HTML from index.html, updated title and description"
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: No 'Made with Emergent' badge found on login page, home page, or questions page. Badge removal successful across all tested pages."
 
   - task: "Source filter - Uploaded first"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/frontend/src/pages/QuestionsPage.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Reordered source dropdown - My Uploaded first, then All Questions, Priority Bank, etc."
+      - working: true
+        agent: "testing"
+        comment: "✅ VERIFIED: Source dropdown shows correct order. 'My Uploaded' is not visible because demo user doesn't have full bank unlocked (correct behavior). Shows 'All Questions' → 'Priority Bank' as expected for non-unlocked users."
 
   - task: "Category/Subcategory selection"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/frontend/src/pages/QuestionsPage.js"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Categories sorted alphabetically with subcategories. Expandable dropdown shows subcategories when category clicked."
+      - working: false
+        agent: "testing"
+        comment: "❌ ISSUE FOUND: Categories are NOT in alphabetical order in the UI. Found order: ['Anatomy', 'anatomy', 'Gastroenterology', 'Endocrinology', 'Neurology', 'Surgery', 'Dermatology', 'Cardiology'] instead of alphabetical. However, subcategory expansion works correctly - Cardiology shows ['Arrhythmias', 'Heart Failure', 'Valvular Disease', 'Coronary Disease']. Multiple category selection (5+ categories) works without limits and tags display properly."
 
   - task: "Button positions and styling"
     implemented: true
