@@ -1,11 +1,70 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { initSampleData } from '../api/endpoints';
+import api from '../api/axios';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = useState(false);
+  const [subscription, setSubscription] = useState(null);
+
+  // Subscription tier limits
+  const tierLimits = {
+    free: {
+      questionsPerDay: '50',
+      importsPerWeek: '0',
+      storage: '0',
+      aiPerDay: '0'
+    },
+    weekly: {
+      questionsPerDay: '200',
+      importsPerWeek: '200',
+      storage: '0',
+      aiPerDay: '0'
+    },
+    monthly: {
+      questionsPerDay: '500',
+      importsPerWeek: '500',
+      storage: '250MB',
+      aiPerDay: '5'
+    },
+    quarterly: {
+      questionsPerDay: '∞',
+      importsPerWeek: '1000',
+      storage: '500MB',
+      aiPerDay: '10'
+    },
+    annual: {
+      questionsPerDay: '∞',
+      importsPerWeek: '2500',
+      storage: '1GB',
+      aiPerDay: '10'
+    }
+  };
+
+  useEffect(() => {
+    loadSubscription();
+  }, []);
+
+  const loadSubscription = async () => {
+    try {
+      const response = await api.get('/user/subscription');
+      setSubscription(response.data);
+    } catch (error) {
+      console.error('Error loading subscription:', error);
+      // Default to free tier if error
+      setSubscription({ subscription_plan: 'free' });
+    }
+  };
+
+  // Get current tier limits
+  const getCurrentLimits = () => {
+    const plan = subscription?.subscription_plan || 'free';
+    return tierLimits[plan] || tierLimits.free;
+  };
+
+  const limits = getCurrentLimits();
 
   const handleGetStarted = () => {
     navigate('/questions');
