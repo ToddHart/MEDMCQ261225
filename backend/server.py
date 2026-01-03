@@ -74,6 +74,16 @@ async def register(user_data: UserCreate):
             detail="Email already registered"
         )
     
+    # Free users MUST accept marketing consent
+    if not user_data.marketing_consent:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must accept the marketing communications disclaimer to create a free account"
+        )
+    
+    # Generate email verification token
+    verification_token = str(uuid.uuid4())
+    
     # Create user with additional fields
     user = User(
         email=user_data.email,
@@ -81,7 +91,10 @@ async def register(user_data: UserCreate):
         institution=user_data.institution,
         current_year=user_data.current_year,
         degree_type=user_data.degree_type,
-        country=user_data.country
+        country=user_data.country,
+        marketing_consent=user_data.marketing_consent,
+        email_verified=False,
+        verification_token=verification_token
     )
     
     # Hash password and store separately
@@ -99,6 +112,22 @@ async def register(user_data: UserCreate):
     progress_dict = progress.model_dump()
     progress_dict['last_activity'] = progress_dict['last_activity'].isoformat()
     await db.user_progress.insert_one(progress_dict)
+    
+    # Log initial subscription history (starting as free)
+    await db.subscription_history.insert_one({
+        "user_id": user.id,
+        "action": "registration",
+        "from_plan": None,
+        "to_plan": "free",
+        "timestamp": datetime.utcnow().isoformat()
+    })
+    
+    # TODO: Send verification email when email service is configured
+    # For now, auto-verify (remove this in production when email is set up)
+    await db.users.update_one(
+        {"id": user.id},
+        {"$set": {"email_verified": True}}
+    )
     
     return user
 
