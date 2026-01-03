@@ -1689,6 +1689,42 @@ async def admin_toggle_admin(
     
     return {"success": True, "message": f"Admin access {'granted' if is_admin else 'revoked'}"}
 
+@api_router.get("/admin/user/{target_user_id}/subscription-history")
+async def admin_get_subscription_history(
+    target_user_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Get subscription history for a specific user (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get user details
+    user = await db.users.find_one({"id": target_user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get subscription history
+    history = await db.subscription_history.find(
+        {"user_id": target_user_id}, 
+        {"_id": 0}
+    ).sort("timestamp", -1).to_list(100)
+    
+    return {
+        "user": {
+            "id": user.get("id"),
+            "email": user.get("email"),
+            "full_name": user.get("full_name"),
+            "current_plan": user.get("subscription_plan") or "free",
+            "subscription_status": user.get("subscription_status") or "free",
+            "subscription_start": user.get("subscription_start"),
+            "subscription_end": user.get("subscription_end"),
+            "email_verified": user.get("email_verified", False),
+            "marketing_consent": user.get("marketing_consent", False),
+            "created_at": user.get("created_at")
+        },
+        "history": history
+    }
+
 # ============================================================================
 # CRM ROUTES (Admin Only)
 # ============================================================================
