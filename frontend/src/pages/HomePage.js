@@ -226,29 +226,63 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* Stats Section */}
+      {/* Stats Section - Dynamic based on subscription */}
       <div className="bg-white rounded-xl shadow-md p-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-          Platform Features
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-2">5GB</div>
-            <div className="text-sm text-gray-600">Private Storage</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">100</div>
-            <div className="text-sm text-gray-600">AI Questions/Day</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-purple-600 mb-2">∞</div>
-            <div className="text-sm text-gray-600">Question Banks</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-orange-600 mb-2">4</div>
-            <div className="text-sm text-gray-600">Difficulty Levels</div>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">
+            Your Plan Features
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+              subscription?.subscription_plan === 'annual' ? 'bg-purple-100 text-purple-700' :
+              subscription?.subscription_plan === 'quarterly' ? 'bg-blue-100 text-blue-700' :
+              subscription?.subscription_plan === 'monthly' ? 'bg-green-100 text-green-700' :
+              subscription?.subscription_plan === 'weekly' ? 'bg-orange-100 text-orange-700' :
+              'bg-gray-100 text-gray-700'
+            }`}>
+              {subscription?.subscription_plan 
+                ? subscription.subscription_plan.charAt(0).toUpperCase() + subscription.subscription_plan.slice(1) + ' Plan'
+                : 'Free Plan'}
+            </span>
+            {(!subscription?.subscription_plan || subscription?.subscription_plan === 'free') && (
+              <button
+                onClick={() => navigate('/subscription')}
+                className="text-sm text-blue-600 hover:underline font-medium"
+              >
+                Upgrade →
+              </button>
+            )}
           </div>
         </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <div className="text-3xl font-bold text-blue-600 mb-2">{limits.questionsPerDay}</div>
+            <div className="text-sm text-gray-600">Questions/Day</div>
+          </div>
+          <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-3xl font-bold text-green-600 mb-2">{limits.importsPerWeek}</div>
+            <div className="text-sm text-gray-600">Imports/Week</div>
+          </div>
+          <div className="text-center p-4 bg-purple-50 rounded-lg">
+            <div className="text-3xl font-bold text-purple-600 mb-2">{limits.storage || 'None'}</div>
+            <div className="text-sm text-gray-600">Private Storage</div>
+          </div>
+          <div className="text-center p-4 bg-orange-50 rounded-lg">
+            <div className="text-3xl font-bold text-orange-600 mb-2">{limits.aiPerDay}</div>
+            <div className="text-sm text-gray-600">AI Uses/Day</div>
+          </div>
+        </div>
+        {(!subscription?.subscription_plan || subscription?.subscription_plan === 'free') && (
+          <div className="mt-6 text-center">
+            <p className="text-gray-500 text-sm mb-3">Upgrade your plan to unlock more features</p>
+            <button
+              onClick={() => navigate('/subscription')}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
+            >
+              View Subscription Plans
+            </button>
+          </div>
+        )}
       </div>
     </Layout>
   );
