@@ -80,7 +80,7 @@ const SubscriptionPage = () => {
         { text: 'Unlimited Exam Mode', included: true },
         { text: 'Question Import (2500/week)', included: true },
         { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
-        { text: '750MB Private Storage', included: true, highlight: true },
+        { text: '1GB Private Storage', included: true, highlight: true },
         { text: 'Advanced AI Features', included: true, highlight: true },
         { text: 'Study Calendar & Insights', included: true },
         { text: 'Priority Support 24/7', included: true },
@@ -363,7 +363,7 @@ const SubscriptionPage = () => {
                   <td className="text-center py-3 px-4 text-gray-400">✗ None</td>
                   <td className="text-center py-3 px-4 font-semibold text-purple-700">250MB</td>
                   <td className="text-center py-3 px-4 font-semibold text-purple-700">500MB</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">750MB</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">1GB</td>
                 </tr>
                 <tr className="border-b border-gray-100">
                   <td className="py-3 px-4 font-medium">Analytics</td>
