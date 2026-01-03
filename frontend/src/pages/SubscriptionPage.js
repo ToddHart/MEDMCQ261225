@@ -10,11 +10,7 @@ const SubscriptionPage = () => {
   const [subscription, setSubscription] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
 
-  // AI limits based on subscription cost (50% of subscription goes to AI)
-  // Weekly $9.99 -> ~$5 AI budget -> ~3 uses/day
-  // Monthly $29.99 -> ~$15 AI budget -> ~10 uses/day  
-  // Quarterly $79.99 -> ~$40 AI budget -> ~15 uses/day
-  // Annual $249.99 -> ~$125 AI budget -> ~25 uses/day
+  // AI limits and features based on subscription tier
   const plans = [
     {
       id: 'weekly',
@@ -23,12 +19,12 @@ const SubscriptionPage = () => {
       priceValue: 9.99,
       period: 'per week',
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: '200 Questions/day', included: true },
         { text: 'Basic Analytics', included: true },
         { text: 'Exam Mode', included: true },
-        { text: 'Question Import (100 limit)', included: true },
+        { text: 'Question Import (200/week)', included: true },
         { text: 'AI Question Generation', included: false },
-        { text: 'Advanced Analytics', included: false },
+        { text: 'Private Storage', included: false },
         { text: 'Study Calendar', included: false },
         { text: 'Progress Reports', included: false },
       ],
@@ -41,12 +37,12 @@ const SubscriptionPage = () => {
       period: 'per month',
       popular: true,
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: '500 Questions/day', included: true },
         { text: 'Basic & Advanced Analytics', included: true },
         { text: 'Exam Mode', included: true },
-        { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
-        { text: '500MB Private Storage', included: true, highlight: true },
+        { text: 'Question Import (500/week)', included: true },
+        { text: 'AI Generation (5 uses/day)', included: true, highlight: true },
+        { text: '250MB Private Storage', included: true, highlight: true },
         { text: 'Study Calendar', included: true },
         { text: 'Progress Reports', included: true },
       ],
@@ -59,12 +55,12 @@ const SubscriptionPage = () => {
       period: 'every 3 months',
       savings: '11% OFF',
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: 'Unlimited Questions/day', included: true },
         { text: 'Full Analytics Suite', included: true },
         { text: 'Exam Mode + Custom Exams', included: true },
-        { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (15 uses/day)', included: true, highlight: true },
-        { text: '2GB Private Storage', included: true, highlight: true },
+        { text: 'Question Import (1000/week)', included: true },
+        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
+        { text: '500MB Private Storage', included: true, highlight: true },
         { text: 'Study Calendar & Tracking', included: true },
         { text: 'Detailed Progress Reports', included: true },
         { text: 'Priority Email Support', included: true },
@@ -79,12 +75,12 @@ const SubscriptionPage = () => {
       savings: '30% OFF',
       bestValue: true,
       features: [
-        { text: 'All Features Included', included: true },
+        { text: 'Unlimited Questions/day', included: true },
         { text: 'Full Analytics Suite', included: true },
         { text: 'Unlimited Exam Mode', included: true },
-        { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (25 uses/day)', included: true, highlight: true },
-        { text: '5GB Private Storage', included: true, highlight: true },
+        { text: 'Question Import (2500/week)', included: true },
+        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
+        { text: '750MB Private Storage', included: true, highlight: true },
         { text: 'Advanced AI Features', included: true, highlight: true },
         { text: 'Study Calendar & Insights', included: true },
         { text: 'Priority Support 24/7', included: true },
