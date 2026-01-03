@@ -305,12 +305,12 @@ async def check_daily_question_limit(user_id: str) -> tuple:
             "questions_viewed": 0,
             "created_at": datetime.utcnow().isoformat()
         })
-        return True, DAILY_LIMIT, False
+        return True, daily_limit, is_subscriber, daily_limit
     
     questions_viewed = daily_usage.get('questions_viewed', 0)
-    questions_remaining = max(0, DAILY_LIMIT - questions_viewed)
+    questions_remaining = max(0, daily_limit - questions_viewed)
     
-    return questions_remaining > 0, questions_remaining, False
+    return questions_remaining > 0, questions_remaining, is_subscriber, daily_limit
 
 async def increment_daily_usage(user_id: str, count: int = 1):
     """Increment the daily question count for a user."""
