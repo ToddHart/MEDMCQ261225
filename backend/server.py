@@ -1955,7 +1955,6 @@ async def health_check():
 
 # from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 from fastapi import Request
-import uuid
 
 # Define subscription packages (amounts in dollars) - kept for reference
 SUBSCRIPTION_PACKAGES = {
