@@ -431,14 +431,14 @@ const QuestionsPage = () => {
             <div className="text-6xl mb-4">⏰</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Daily Limit Reached</h2>
             <p className="text-gray-600 mb-6">
-              You&apos;ve reached your daily limit of 50 questions. Subscribe to get unlimited access to all questions!
+              You&apos;ve reached your daily question limit. Upgrade your subscription to get more questions per day or unlimited access!
             </p>
             <div className="flex justify-center gap-4">
               <button
                 onClick={() => window.location.href = '/subscription'}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold"
               >
-                Subscribe Now
+                Upgrade Plan
               </button>
               <button
                 onClick={() => window.location.href = '/'}
