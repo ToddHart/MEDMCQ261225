@@ -889,10 +889,12 @@ const QuestionsPage = () => {
           </>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 w-full overflow-x-hidden">
-          {/* Desktop Sidebar */}
-          <div className="hidden lg:block lg:col-span-1">
-            <FilterPanel />
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 w-full overflow-x-hidden items-start">
+          {/* Desktop Sidebar - Fixed position relative to viewport */}
+          <div className="hidden lg:block lg:col-span-1 self-start">
+            <div className="sticky top-16">
+              <FilterPanel />
+            </div>
           </div>
 
           {/* Main Content - Question Card */}
