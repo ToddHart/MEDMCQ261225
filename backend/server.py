@@ -33,6 +33,13 @@ from storage_service import storage_service
 from ai_service import ai_service
 from adaptive_learning import adaptive_engine
 
+# Import email service
+from email_service import (
+    send_verification_email,
+    send_password_reset_email,
+    send_qualifying_session_email
+)
+
 # Import tenant configuration
 from tenant_config import (
     TenantConfig, TenantCreate, TenantUpdate, DEFAULT_TENANT,
