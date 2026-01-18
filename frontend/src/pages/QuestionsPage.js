@@ -555,7 +555,7 @@ const QuestionsPage = () => {
         {/* Year Filter - Checkbox style dropdown */}
         <div>
           <label className="block text-xs font-bold text-gray-800 mb-1">YEAR</label>
-          <div className="relative">
+          <div className="relative filter-dropdown">
             <button
               onClick={() => setShowYearDropdown(!showYearDropdown)}
               className="w-full px-3 py-3 border-2 border-blue-300 rounded-xl text-sm font-medium bg-gradient-to-r from-blue-50 to-purple-50 text-left flex justify-between items-center"
