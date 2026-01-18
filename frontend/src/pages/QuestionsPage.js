@@ -470,7 +470,7 @@ const QuestionsPage = () => {
 
   // Filter Panel Component
   const FilterPanel = ({ isMobile = false }) => (
-    <div className={`${isMobile ? 'p-4' : 'bg-white rounded-xl shadow-lg p-3 sticky top-16 border-2 border-gray-100'} flex flex-col`}>
+    <div className={`${isMobile ? 'p-4' : 'bg-white rounded-xl shadow-lg p-3 border-2 border-gray-100'} flex flex-col`}>
       {!isMobile && <h3 className="text-base font-bold text-gray-900 mb-3 pb-2 border-b-2 border-blue-500">Filters</h3>}
       
       <div className="mb-2 space-y-1">
