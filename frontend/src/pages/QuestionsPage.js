@@ -201,6 +201,20 @@ const QuestionsPage = () => {
     localStorage.setItem('sessionStats', JSON.stringify(stats));
   }, [stats]);
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.filter-dropdown')) {
+        setShowYearDropdown(false);
+        setShowComplexityDropdown(false);
+        setShowSourceDropdown(false);
+        setShowCategoryDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     loadQuestions();
   }, [selectedCategories, difficulty, year, sourceFilter]);
