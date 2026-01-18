@@ -1737,6 +1737,16 @@ async def complete_exam(
             {"$set": update_data},
             upsert=True
         )
+        
+        # Send qualifying session email notification
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        if user and user.get('email'):
+            send_qualifying_session_email(
+                to_email=user['email'],
+                user_name=user.get('full_name', 'User'),
+                sessions_completed=new_qualifying,
+                score=score
+            )
     
     # Update exam
     await db.exam_sessions.update_one(
