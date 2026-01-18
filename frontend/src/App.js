@@ -16,6 +16,8 @@ import SubscriptionPage from './pages/SubscriptionPage';
 import ContactPage from './pages/ContactPage';
 import AdminPage from './pages/AdminPage';
 import CRMPage from './pages/CRMPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // Tenant Loading Screen
 const TenantLoadingScreen = () => {
