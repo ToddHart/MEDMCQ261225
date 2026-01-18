@@ -126,6 +126,9 @@ const QuestionsPage = () => {
   const [year, setYear] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
+  const [showComplexityDropdown, setShowComplexityDropdown] = useState(false);
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState(null);
 
   // Complexity tier labels - FULL names, not abbreviated
