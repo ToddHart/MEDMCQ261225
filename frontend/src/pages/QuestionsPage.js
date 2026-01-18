@@ -602,7 +602,7 @@ const QuestionsPage = () => {
           <label className="block text-xs font-bold text-gray-800 mb-1">
             CATEGORIES {selectedCategories.length > 0 && `(${selectedCategories.length})`}
           </label>
-          <div className="relative">
+          <div className="relative filter-dropdown">
             <button
               onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
               className="w-full px-3 py-3 border-2 border-green-300 rounded-xl text-sm font-medium bg-green-50 text-left flex justify-between items-center"
