@@ -565,6 +565,78 @@ async def reset_password(data: dict):
     
     return {"message": "Password has been reset successfully. You can now login with your new password."}
 
+@api_router.get("/auth/verify-email")
+async def verify_email(token: str):
+    """Verify email address using token from email link"""
+    if not token:
+        raise HTTPException(status_code=400, detail="Verification token is required")
+    
+    # Find user with this verification token
+    user = await db.users.find_one({"verification_token": token})
+    
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+    
+    if user.get('email_verified'):
+        return {"message": "Email already verified. You can login now."}
+    
+    # Update user as verified
+    await db.users.update_one(
+        {"verification_token": token},
+        {
+            "$set": {"email_verified": True},
+            "$unset": {"verification_token": ""}
+        }
+    )
+    
+    logger.info(f"Email verified for user: {user.get('email')}")
+    return {"message": "Email verified successfully! You can now login."}
+
+@api_router.post("/auth/resend-verification")
+async def resend_verification_email(
+    data: dict,
+    request: Request,
+    tenant_id: str = Depends(get_current_tenant)
+):
+    """Resend email verification link"""
+    email = data.get('email')
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    # Find user
+    user = await db.users.find_one({
+        "email": email,
+        "tenant_id": tenant_id
+    })
+    
+    if not user:
+        # Don't reveal if email exists
+        return {"message": "If an account exists with this email, a verification link will be sent."}
+    
+    if user.get('email_verified'):
+        return {"message": "Email is already verified. You can login now."}
+    
+    # Generate new verification token
+    new_token = str(uuid.uuid4())
+    await db.users.update_one(
+        {"email": email, "tenant_id": tenant_id},
+        {"$set": {"verification_token": new_token}}
+    )
+    
+    # Send verification email
+    email_sent = send_verification_email(
+        to_email=email,
+        user_name=user.get('full_name', 'User'),
+        verification_token=new_token
+    )
+    
+    if email_sent:
+        logger.info(f"Verification email resent to {email}")
+    else:
+        logger.warning(f"Failed to resend verification email to {email}")
+    
+    return {"message": "If an account exists with this email, a verification link will be sent."}
+
 @api_router.get("/auth/me", response_model=User)
 async def get_current_user_info(user_id: str = Depends(get_current_user)):
     """Get current user information"""
