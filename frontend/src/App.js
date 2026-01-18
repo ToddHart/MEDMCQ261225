@@ -164,6 +164,9 @@ function AppRoutes() {
           </AdminRoute>
         }
       />
+      {/* Public Routes - No Auth Required */}
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
     </Routes>
   );
 }
