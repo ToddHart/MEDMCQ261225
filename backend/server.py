@@ -417,12 +417,20 @@ async def register(
         "timestamp": datetime.utcnow().isoformat()
     })
     
-    # TODO: Send verification email when email service is configured
-    # For now, auto-verify (remove this in production when email is set up)
-    await db.users.update_one(
-        {"id": user.id},
-        {"$set": {"email_verified": True}}
+    # Send verification email
+    email_sent = send_verification_email(
+        to_email=user.email,
+        user_name=user.full_name,
+        verification_token=verification_token
     )
+    
+    if not email_sent:
+        logger.warning(f"Failed to send verification email to {user.email}, auto-verifying")
+        # Fallback: auto-verify if email fails
+        await db.users.update_one(
+            {"id": user.id},
+            {"$set": {"email_verified": True}}
+        )
     
     logger.info(f"New user registered: {user.email} for tenant: {tenant_id}")
     return user
