@@ -497,7 +497,7 @@ const QuestionsPage = () => {
         {/* Source Filter - Checkbox style dropdown */}
         <div>
           <label className="block text-xs font-bold text-gray-800 mb-1">SOURCE</label>
-          <div className="relative">
+          <div className="relative filter-dropdown">
             <button
               onClick={() => hasPaidSubscription && setShowSourceDropdown(!showSourceDropdown)}
               className={`w-full px-3 py-3 border-2 rounded-xl text-sm font-medium text-left flex justify-between items-center ${
