@@ -648,7 +648,7 @@ const QuestionsPage = () => {
         {/* Complexity Filter - Checkbox style dropdown */}
         <div>
           <label className="block text-xs font-bold text-gray-800 mb-1">COMPLEXITY</label>
-          <div className="relative">
+          <div className="relative filter-dropdown">
             <button
               onClick={() => setShowComplexityDropdown(!showComplexityDropdown)}
               className="w-full px-3 py-3 border-2 border-purple-300 rounded-xl text-sm font-medium bg-purple-50 text-left flex justify-between items-center"
