@@ -806,7 +806,7 @@ const QuestionsPage = () => {
 
   return (
     <Layout>
-      <div className="w-full max-w-7xl mx-auto -mt-4" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
+      <div className="w-full max-w-7xl mx-auto -mt-4 overflow-x-hidden" style={{ maxWidth: '100vw' }}>
         {/* Session Stats Modal for Mobile */}
         {showStatsModal && (
           <>
