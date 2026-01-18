@@ -135,10 +135,6 @@ const QuestionsPage = () => {
     '3': 'Proficient',
     '4': 'Advanced'
   };
-    '2': 'Competent',
-    '3': 'Proficient',
-    '4': 'Advanced'
-  };
 
   // Fetch unlock status on mount
   useEffect(() => {
