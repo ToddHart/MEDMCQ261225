@@ -1,4 +1,8 @@
-import api from './axios';
+import api, { publicApi } from './axios';
+
+// Tenant Configuration (PUBLIC - no auth required)
+export const getTenantConfig = (domain) => 
+  publicApi.get('/tenant/config', { params: { domain } });
 
 // Authentication
 export const register = (data) => api.post('/auth/register', data);
@@ -29,6 +33,7 @@ export const getStudySessions = (params) => api.get('/analytics/sessions', { par
 
 // Exam Mode
 export const startExam = (data) => api.post('/exam/start', null, { params: data });
+export const getExamQuestions = (examId) => api.get(`/exam/${examId}/questions`);
 export const submitExamAnswer = (examId, data) => api.post(`/exam/${examId}/answer`, null, { params: data });
 export const completeExam = (examId) => api.post(`/exam/${examId}/complete`);
 
@@ -38,3 +43,16 @@ export const exportData = (data) =>
 
 // Sample Data
 export const initSampleData = () => api.post('/init/sample-data');
+
+// UNE Priority System
+export const getUnlockStatus = () => api.get('/unlock-status');
+export const getQuestionBankStats = () => api.get('/question-bank-stats');
+export const initUNEQuestions = () => api.post('/init/une-questions');
+
+// Admin Tenant Management
+export const getAdminTenants = () => api.get('/admin/tenants');
+export const createAdminTenant = (data) => api.post('/admin/tenants', data);
+export const updateAdminTenant = (tenantId, data) => api.put(`/admin/tenants/${tenantId}`, data);
+export const deleteAdminTenant = (tenantId) => api.delete(`/admin/tenants/${tenantId}`);
+export const getMultiTenantDashboard = () => api.get('/admin/dashboard/multi-tenant');
+export const runMigration = () => api.post('/admin/run-migration');

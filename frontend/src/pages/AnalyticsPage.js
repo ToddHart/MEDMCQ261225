@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { getAnalytics, getStudySessions } from '../api/endpoints';
+import { useTenant } from '../contexts/TenantContext';
 import api from '../api/axios';
 
 const AnalyticsPage = () => {
@@ -11,10 +12,18 @@ const AnalyticsPage = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [expandedCategories, setExpandedCategories] = useState({});
+  const { tenant } = useTenant();
+  
+  // Get tenant branding
+  const tenantName = tenant?.name || 'MedMCQ';
   
   // Session stats from localStorage
   const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0, streak: 0 });
   const [sessionCategoryStats, setSessionCategoryStats] = useState({});
+
+  useEffect(() => {
+    document.title = `Analytics | ${tenantName}`;
+  }, [tenantName]);
 
   useEffect(() => {
     loadAnalytics();
@@ -169,7 +178,12 @@ const AnalyticsPage = () => {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Study Calendar</h2>
+          <div className="flex items-center">
+            <svg className="w-8 h-8 text-indigo-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <h2 className="text-xl font-bold text-gray-800">Study Calendar</h2>
+          </div>
           <div className="flex items-center gap-4">
             <button
               onClick={() => {
@@ -243,7 +257,12 @@ const AnalyticsPage = () => {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Your Analytics</h1>
+        <div className="flex items-center mb-6">
+          <svg className="w-8 h-8 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <h1 className="text-2xl font-bold text-gray-900">Your Analytics</h1>
+        </div>
         
         {/* Stats Grid - Session vs Cumulative */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">

@@ -6,19 +6,23 @@ from models import (
 from datetime import datetime
 
 class AdaptiveLearningEngine:
-    """Adaptive learning engine implementing 3-Up, 2-Down difficulty scaling"""
+    """Adaptive learning engine implementing complexity progression:
+    - 3 correct from last 4 questions in a subcategory to advance
+    - 2 wrong at same level to go down (unless at foundational)
+    """
     
-    # Difficulty progression order
+    # Difficulty progression order (Foundational -> Competent -> Proficient -> Advanced)
     DIFFICULTY_ORDER = [
-        DifficultyLevel.EASY,
-        DifficultyLevel.MEDIUM,
-        DifficultyLevel.HARD,
-        DifficultyLevel.EXTREME
+        DifficultyLevel.EASY,      # 1 - Foundational
+        DifficultyLevel.MEDIUM,    # 2 - Competent
+        DifficultyLevel.HARD,      # 3 - Proficient
+        DifficultyLevel.EXTREME    # 4 - Advanced
     ]
     
-    # Rules
-    LEVEL_UP_THRESHOLD = 3  # 3 consecutive correct answers
-    LEVEL_DOWN_THRESHOLD = 2  # 2 consecutive wrong answers
+    # Rules - Updated for 3/4 system
+    LEVEL_UP_CORRECT_REQUIRED = 3  # 3 correct from last 4
+    LEVEL_UP_WINDOW = 4            # Window of 4 questions
+    LEVEL_DOWN_WRONG_THRESHOLD = 2 # 2 wrong at same level to go down
     
     def __init__(self):
         pass
@@ -32,11 +36,15 @@ class AdaptiveLearningEngine:
         """Process a user's answer and update progress
         
         Implements:
-        1. Update category progress
-        2. Apply 3-Up, 2-Down rule
+        1. Update category/subcategory progress
+        2. Apply 3/4 correct to advance, 2 wrong to go down rule
         3. Update overall statistics
         """
         category = question.category.value
+        subcategory = question.subcategory if hasattr(question, 'subcategory') and question.subcategory else category
+        
+        # Create a combined key for category+subcategory tracking
+        tracking_key = f"{category}:{subcategory}"
         
         # Initialize category progress if not exists
         if category not in progress.category_progress:
@@ -51,6 +59,27 @@ class AdaptiveLearningEngine:
         
         cat_progress = progress.category_progress[category]
         
+        # Track per-subcategory progress for complexity rules
+        # Store recent answers per subcategory+level in a separate tracking dict
+        if not hasattr(progress, 'subcategory_tracking') or progress.subcategory_tracking is None:
+            progress.subcategory_tracking = {}
+        
+        current_level = cat_progress.current_difficulty.value
+        level_key = f"{tracking_key}:{current_level}"
+        
+        if level_key not in progress.subcategory_tracking:
+            progress.subcategory_tracking[level_key] = {
+                'recent_answers': [],  # List of booleans (True=correct, False=wrong)
+                'wrong_count_at_level': 0
+            }
+        
+        tracking = progress.subcategory_tracking[level_key]
+        
+        # Add this answer to recent answers (keep only last LEVEL_UP_WINDOW)
+        tracking['recent_answers'].append(answer.is_correct)
+        if len(tracking['recent_answers']) > self.LEVEL_UP_WINDOW:
+            tracking['recent_answers'] = tracking['recent_answers'][-self.LEVEL_UP_WINDOW:]
+        
         # Update category statistics
         cat_progress.total_answered += 1
         if answer.is_correct:
@@ -64,9 +93,25 @@ class AdaptiveLearningEngine:
         else:
             cat_progress.correct_streak = 0
             progress.current_streak = 0
+            tracking['wrong_count_at_level'] += 1
         
         # Apply adaptive difficulty logic
-        cat_progress = self._apply_adaptive_logic(cat_progress, answer.is_correct)
+        cat_progress, level_changed = self._apply_adaptive_logic(
+            cat_progress, 
+            tracking,
+            answer.is_correct
+        )
+        
+        # If level changed, reset tracking for new level
+        if level_changed:
+            new_level_key = f"{tracking_key}:{cat_progress.current_difficulty.value}"
+            if new_level_key not in progress.subcategory_tracking:
+                progress.subcategory_tracking[new_level_key] = {
+                    'recent_answers': [],
+                    'wrong_count_at_level': 0
+                }
+            # Reset wrong count for old level
+            tracking['wrong_count_at_level'] = 0
         
         # Update global statistics
         progress.total_questions_answered += 1
@@ -83,35 +128,38 @@ class AdaptiveLearningEngine:
     def _apply_adaptive_logic(
         self, 
         cat_progress: CategoryProgress, 
+        tracking: dict,
         is_correct: bool
-    ) -> CategoryProgress:
-        """Apply 3-Up, 2-Down rule to adjust difficulty"""
-        current_index = self.DIFFICULTY_ORDER.index(cat_progress.current_difficulty)
+    ) -> tuple:
+        """Apply complexity progression rules:
+        - 3 correct from last 4 questions to advance
+        - 2 wrong at same level to go down (unless at foundational)
         
-        if is_correct:
-            # Level up: 3 consecutive correct answers
-            if cat_progress.correct_streak >= self.LEVEL_UP_THRESHOLD:
+        Returns: (updated_progress, level_changed)
+        """
+        current_index = self.DIFFICULTY_ORDER.index(cat_progress.current_difficulty)
+        level_changed = False
+        
+        recent = tracking['recent_answers']
+        
+        # Check for level UP: 3 correct from last 4
+        if len(recent) >= self.LEVEL_UP_WINDOW:
+            correct_count = sum(recent[-self.LEVEL_UP_WINDOW:])
+            if correct_count >= self.LEVEL_UP_CORRECT_REQUIRED:
                 if current_index < len(self.DIFFICULTY_ORDER) - 1:
                     cat_progress.current_difficulty = self.DIFFICULTY_ORDER[current_index + 1]
-                    cat_progress.correct_streak = 0  # Reset streak after level up
-                    print(f"Level UP! Now at {cat_progress.current_difficulty}")
-            # Reset wrong streak on correct answer
-            cat_progress.wrong_streak = 0
-        else:
-            # Level down: 2 consecutive wrong answers
-            cat_progress.wrong_streak += 1
-            
-            if cat_progress.wrong_streak >= self.LEVEL_DOWN_THRESHOLD:
-                if current_index > 0:
-                    cat_progress.current_difficulty = self.DIFFICULTY_ORDER[current_index - 1]
-                    cat_progress.wrong_streak = 0
-                    print(f"Level DOWN! Now at {cat_progress.current_difficulty}")
-            
-            # Reset correct streak on wrong answer
-            cat_progress.correct_streak = 0
+                    level_changed = True
+                    print(f"Level UP! Now at {cat_progress.current_difficulty.value} (got {correct_count}/{self.LEVEL_UP_WINDOW} correct)")
+        
+        # Check for level DOWN: 2 wrong at same level
+        if not level_changed and tracking['wrong_count_at_level'] >= self.LEVEL_DOWN_WRONG_THRESHOLD:
+            if current_index > 0:  # Don't go below foundational
+                cat_progress.current_difficulty = self.DIFFICULTY_ORDER[current_index - 1]
+                level_changed = True
+                print(f"Level DOWN! Now at {cat_progress.current_difficulty.value} (got {tracking['wrong_count_at_level']} wrong)")
         
         cat_progress.last_updated = datetime.utcnow()
-        return cat_progress
+        return cat_progress, level_changed
     
     def get_next_questions(
         self, 

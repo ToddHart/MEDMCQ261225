@@ -3,8 +3,16 @@ import axios from 'axios';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API_BASE = `${BACKEND_URL}/api`;
 
-// Create axios instance with default config
+// Create axios instance with default config (authenticated requests)
 const api = axios.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Create public axios instance (no auth required)
+export const publicApi = axios.create({
   baseURL: API_BASE,
   headers: {
     'Content-Type': 'application/json',

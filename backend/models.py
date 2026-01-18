@@ -47,6 +47,11 @@ class QuestionCategory(str, Enum):
     SURGERY = "surgery"
     MEDICINE = "medicine"
     GENERAL = "general"
+    GENERAL_MEDICINE = "general medicine"
+    INFECTIOUS_DISEASE = "infectious disease"
+    RHEUMATOLOGY = "rheumatology"
+    NEPHROLOGY = "nephrology"
+    COMMUNITY_MEDICINE = "community medicine"
 
 # User Models
 class UserBase(BaseModel):
@@ -55,6 +60,11 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    institution: Optional[str] = None
+    current_year: Optional[int] = None
+    degree_type: Optional[str] = None
+    country: Optional[str] = None
+    marketing_consent: bool = False  # Must accept marketing for free tier
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -64,13 +74,26 @@ class User(UserBase):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # Multi-tenant identifier
+    tenant_id: str = "med"
+    institution: Optional[str] = None
+    current_year: Optional[int] = None
+    degree_type: Optional[str] = None
+    country: Optional[str] = None
     subscription_tier: SubscriptionTier = SubscriptionTier.FREE
+    subscription_status: Optional[str] = "free"
+    subscription_plan: Optional[str] = None
+    subscription_end: Optional[str] = None
     storage_used_gb: float = 0.0
     storage_quota_gb: float = 5.0
     ai_daily_uses: int = 0
     ai_max_daily_uses: int = 10
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_active: bool = True
+    is_admin: bool = False
+    email_verified: bool = False  # Email verification status
+    marketing_consent: bool = False  # Marketing consent for free users
+    verification_token: Optional[str] = None  # For email verification
 
 # Token Models
 class Token(BaseModel):
@@ -99,8 +122,11 @@ class Question(QuestionBase):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # Multi-tenant identifier
+    tenant_id: str = "med"
     user_id: Optional[str] = None  # None means global question
     source: str = "imported"  # imported, ai-generated, sample
+    subcategory: Optional[str] = None  # For subcategory filtering
     created_at: datetime = Field(default_factory=datetime.utcnow)
     verified: bool = False
 
@@ -125,20 +151,28 @@ class UserProgress(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # Multi-tenant identifier
+    tenant_id: str = "med"
     user_id: str
     category_progress: Dict[str, CategoryProgress] = {}
+    subcategory_tracking: Optional[Dict[str, Any]] = {}  # For 3/4 complexity progression tracking
     total_questions_answered: int = 0
     total_correct: int = 0
     highest_streak: int = 0
     current_streak: int = 0
     total_time_spent: int = 0  # seconds
     last_activity: datetime = Field(default_factory=datetime.utcnow)
+    # UNE Priority System - Track qualifying sessions
+    qualifying_sessions_completed: int = 0  # Sessions with 85%+ on 50+ questions
+    full_bank_unlocked: bool = False  # True after 3 qualifying sessions
 
 # Study Session Models
 class StudySession(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # Multi-tenant identifier
+    tenant_id: str = "med"
     user_id: str
     date: str  # YYYY-MM-DD format
     questions_answered: int = 0
@@ -179,6 +213,8 @@ class ExamSession(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # Multi-tenant identifier
+    tenant_id: str = "med"
     user_id: str
     question_ids: List[str]
     answers: Dict[str, int]  # question_id -> selected_answer
@@ -186,6 +222,10 @@ class ExamSession(BaseModel):
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
     score: Optional[int] = None
+    # Track original answer mappings for randomized options
+    answer_mappings: Dict[str, List[int]] = {}  # question_id -> list of original indices in display order
+    question_count: int = 0  # Total questions in session
+    is_qualifying_session: bool = False  # Whether this session counted toward unlock
 
 class ExamResult(BaseModel):
     score: int
@@ -199,6 +239,8 @@ class QuestionReport(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # Multi-tenant identifier
+    tenant_id: str = "med"
     question_id: str
     user_id: str
     reason: str

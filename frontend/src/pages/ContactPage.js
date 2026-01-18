@@ -1,8 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { useTenant } from '../contexts/TenantContext';
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const { tenant, getPrimaryColor } = useTenant();
+  
+  // Get tenant branding
+  const tenantName = tenant?.name || 'MedMCQ';
+  const supportEmail = tenant?.support_email || 'support@medmcq.com.au';
+  const footerAddress = tenant?.footer_address || '2/24 Edgar St, Coffs Harbour NSW 2450, Australia';
+  const primaryColor = getPrimaryColor();
+  
+  // Update page title
+  useEffect(() => {
+    document.title = `Contact | ${tenantName}`;
+  }, [tenantName]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -49,7 +62,8 @@ const ContactPage = () => {
             </div>
             <button
               type="submit"
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full py-3 text-white rounded-lg transition-colors hover:opacity-90"
+              style={{ backgroundColor: primaryColor }}
             >
               Send Message
             </button>
@@ -59,9 +73,8 @@ const ContactPage = () => {
         <div className="mt-8 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold mb-4">Other Ways to Reach Us</h2>
           <div className="space-y-3">
-            <p><strong>Email:</strong> support@medmcq.com</p>
-            <p><strong>Phone:</strong> +1 (555) 123-4567</p>
-            <p><strong>Address:</strong> 123 Medical Plaza, Suite 400, Boston, MA 02115</p>
+            <p><strong>Email:</strong> <a href={`mailto:${supportEmail}`} className="text-blue-600 hover:underline">{supportEmail}</a></p>
+            {footerAddress && <p><strong>Address:</strong> {footerAddress}</p>}
           </div>
         </div>
       </div>

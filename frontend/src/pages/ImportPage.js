@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { importQuestions } from '../api/endpoints';
+import { useTenant } from '../contexts/TenantContext';
 
 const ImportPage = () => {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const { tenant } = useTenant();
+  
+  // Get tenant branding
+  const tenantName = tenant?.name || 'MedMCQ';
+  
+  // Update page title
+  useEffect(() => {
+    document.title = `Import Questions | ${tenantName}`;
+  }, [tenantName]);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -32,8 +42,13 @@ const ImportPage = () => {
   return (
     <Layout>
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Import Questions</h1>
-        <p className="text-gray-600 mb-8">
+        <div className="flex items-center mb-2">
+          <svg className="w-8 h-8 text-orange-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <h1 className="text-2xl font-bold text-gray-900">Import Questions</h1>
+        </div>
+        <p className="text-gray-600 mb-6">
           Upload your question bank in Excel or CSV format to add them to your personal library.
         </p>
         
@@ -57,7 +72,7 @@ const ImportPage = () => {
 
         {/* Template Preview - Visual representation of Excel format */}
         <div className="bg-white border border-gray-300 rounded-lg p-6 mb-6 shadow-md">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">📊 Template Preview</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Template Preview</h3>
           <p className="text-gray-600 mb-4">
             Your Excel file should have these exact column headers and format:
           </p>
@@ -116,7 +131,7 @@ const ImportPage = () => {
           {/* Column Descriptions */}
           <div className="mt-6 grid md:grid-cols-2 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-bold text-gray-800 mb-2">📝 Column Descriptions</h4>
+              <h4 className="font-bold text-gray-800 mb-2">Column Descriptions</h4>
               <ul className="text-sm text-gray-600 space-y-1">
                 <li><strong>question:</strong> The full question text</li>
                 <li><strong>optionA-E:</strong> Five answer choices</li>
@@ -125,7 +140,7 @@ const ImportPage = () => {
               </ul>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-bold text-gray-800 mb-2">📂 Categories & Levels</h4>
+              <h4 className="font-bold text-gray-800 mb-2">Categories and Levels</h4>
               <ul className="text-sm text-gray-600 space-y-1">
                 <li><strong>category:</strong> anatomy, biochemistry, cardiology, cardiovascular, dermatology, endocrinology, ent, gastroenterology, gynecology, hematology, immunology, medicine, microbiology, neurology, neuroscience, obstetrics, ophthalmology, orthopedics, pathology, pediatrics, pharmacology, physiology, psychiatry, radiology, renal, respiratory, surgery, urology, general</li>
                 <li><strong>subCategory:</strong> Specific topic (e.g., COPD, Arrhythmias)</li>
@@ -139,7 +154,9 @@ const ImportPage = () => {
         {/* Upload Section */}
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <div className="text-6xl mb-4">📁</div>
+            <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
             <h3 className="text-xl font-bold mb-2">Upload Excel or CSV File</h3>
             <p className="text-gray-600 mb-4">
               <strong>Required columns:</strong> question, optionA, optionB, optionC, optionD, optionE, 

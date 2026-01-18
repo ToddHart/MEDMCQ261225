@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { useTenant } from '../contexts/TenantContext';
 import api from '../api/axios';
 
 const SubscriptionPage = () => {
@@ -9,7 +10,17 @@ const SubscriptionPage = () => {
   const [processingPlan, setProcessingPlan] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
+  const { tenant } = useTenant();
+  
+  // Get tenant branding
+  const tenantName = tenant?.name || 'MedMCQ';
+  
+  // Update page title
+  useEffect(() => {
+    document.title = `Subscription | ${tenantName}`;
+  }, [tenantName]);
 
+  // AI limits and features based on subscription tier
   const plans = [
     {
       id: 'weekly',
@@ -18,12 +29,12 @@ const SubscriptionPage = () => {
       priceValue: 9.99,
       period: 'per week',
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: '200 Questions/day', included: true },
         { text: 'Basic Analytics', included: true },
         { text: 'Exam Mode', included: true },
-        { text: 'Question Import (100 limit)', included: true },
+        { text: 'Question Import (200/week)', included: true },
         { text: 'AI Question Generation', included: false },
-        { text: 'Advanced Analytics', included: false },
+        { text: 'Private Storage', included: false },
         { text: 'Study Calendar', included: false },
         { text: 'Progress Reports', included: false },
       ],
@@ -36,12 +47,12 @@ const SubscriptionPage = () => {
       period: 'per month',
       popular: true,
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: '500 Questions/day', included: true },
         { text: 'Basic & Advanced Analytics', included: true },
         { text: 'Exam Mode', included: true },
-        { text: 'Unlimited Question Import', included: true },
+        { text: 'Question Import (500/week)', included: true },
         { text: 'AI Generation (5 uses/day)', included: true, highlight: true },
-        { text: '500MB Private Storage', included: true, highlight: true },
+        { text: '250MB Private Storage', included: true, highlight: true },
         { text: 'Study Calendar', included: true },
         { text: 'Progress Reports', included: true },
       ],
@@ -54,12 +65,12 @@ const SubscriptionPage = () => {
       period: 'every 3 months',
       savings: '11% OFF',
       features: [
-        { text: 'Unlimited Questions', included: true },
+        { text: 'Unlimited Questions/day', included: true },
         { text: 'Full Analytics Suite', included: true },
         { text: 'Exam Mode + Custom Exams', included: true },
-        { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (20 uses/day)', included: true, highlight: true },
-        { text: '2GB Private Storage', included: true, highlight: true },
+        { text: 'Question Import (1000/week)', included: true },
+        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
+        { text: '500MB Private Storage', included: true, highlight: true },
         { text: 'Study Calendar & Tracking', included: true },
         { text: 'Detailed Progress Reports', included: true },
         { text: 'Priority Email Support', included: true },
@@ -74,17 +85,15 @@ const SubscriptionPage = () => {
       savings: '30% OFF',
       bestValue: true,
       features: [
-        { text: 'All Features Included', included: true },
+        { text: 'Unlimited Questions/day', included: true },
         { text: 'Full Analytics Suite', included: true },
         { text: 'Unlimited Exam Mode', included: true },
-        { text: 'Unlimited Question Import', included: true },
-        { text: 'AI Generation (Unlimited)', included: true, highlight: true },
-        { text: '5GB Private Storage', included: true, highlight: true },
+        { text: 'Question Import (2500/week)', included: true },
+        { text: 'AI Generation (10 uses/day)', included: true, highlight: true },
+        { text: '1GB Private Storage', included: true, highlight: true },
         { text: 'Advanced AI Features', included: true, highlight: true },
         { text: 'Study Calendar & Insights', included: true },
         { text: 'Priority Support 24/7', included: true },
-        { text: '2 Hours 1-on-1 Tutoring', included: true },
-        { text: 'Career Counseling', included: true },
       ],
     },
   ];
@@ -187,14 +196,25 @@ const SubscriptionPage = () => {
           </div>
         )}
 
+        {/* Payments Disabled Notice */}
+        {subscription?.payments_disabled && (
+          <div className="mb-6 p-4 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-lg">
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">⚠</span>
+              <span className="font-medium">Payment system is temporarily disabled. Please check back later or contact support.</span>
+            </div>
+          </div>
+        )}
+
         {/* Current Subscription Status */}
-        {subscription && subscription.subscription_status === 'active' && (
+        {subscription && (subscription.subscription_status === 'active' || subscription.subscription_status === 'free_grant') && (
           <div className="mb-6 p-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold">Active Subscription</h3>
                 <p className="text-green-100">
                   {subscription.subscription_plan?.charAt(0).toUpperCase() + subscription.subscription_plan?.slice(1)} Plan
+                  {subscription.subscription_status === 'free_grant' && ' (Free Grant)'}
                   {subscription.subscription_end && ` • Expires: ${new Date(subscription.subscription_end).toLocaleDateString()}`}
                 </p>
               </div>
@@ -205,7 +225,7 @@ const SubscriptionPage = () => {
 
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Choose Your Plan</h1>
-          <p className="text-xl text-gray-600">Unlock your full learning potential with MedMCQ</p>
+          <p className="text-xl text-gray-600">Unlock your full learning potential with {tenantName}</p>
           <p className="text-sm text-gray-500 mt-2">All prices in AUD • Secure payment via Stripe</p>
         </div>
         
@@ -278,7 +298,7 @@ const SubscriptionPage = () => {
 
                 <button
                   onClick={() => handleSubscribe(plan.id)}
-                  disabled={loading || (subscription?.subscription_status === 'active' && subscription?.subscription_plan === plan.id)}
+                  disabled={loading || subscription?.payments_disabled || (subscription?.subscription_status === 'active' && subscription?.subscription_plan === plan.id)}
                   className={`w-full py-3 rounded-lg font-bold transition-all flex items-center justify-center ${
                     subscription?.subscription_status === 'active' && subscription?.subscription_plan === plan.id
                       ? 'bg-green-100 text-green-700 cursor-not-allowed'
@@ -328,32 +348,32 @@ const SubscriptionPage = () => {
               </thead>
               <tbody>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-medium">Questions Access</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
+                  <td className="py-3 px-4 font-medium">Questions/Day</td>
+                  <td className="text-center py-3 px-4">200</td>
+                  <td className="text-center py-3 px-4">500</td>
                   <td className="text-center py-3 px-4">Unlimited</td>
                   <td className="text-center py-3 px-4">Unlimited</td>
                 </tr>
                 <tr className="border-b border-gray-100">
-                  <td className="py-3 px-4 font-medium">Question Import</td>
-                  <td className="text-center py-3 px-4">100 limit</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
-                  <td className="text-center py-3 px-4">Unlimited</td>
+                  <td className="py-3 px-4 font-medium">Question Import/Week</td>
+                  <td className="text-center py-3 px-4">200</td>
+                  <td className="text-center py-3 px-4">500</td>
+                  <td className="text-center py-3 px-4">1000</td>
+                  <td className="text-center py-3 px-4">2500</td>
                 </tr>
                 <tr className="border-b border-gray-100 bg-purple-50">
                   <td className="py-3 px-4 font-bold">AI Question Generation</td>
                   <td className="text-center py-3 px-4 text-gray-400">✗ None</td>
                   <td className="text-center py-3 px-4 font-semibold text-purple-700">5/day</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">20/day</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">Unlimited</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">10/day</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">10/day</td>
                 </tr>
                 <tr className="border-b border-gray-100 bg-purple-50">
                   <td className="py-3 px-4 font-bold">Private Storage</td>
                   <td className="text-center py-3 px-4 text-gray-400">✗ None</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">250MB</td>
                   <td className="text-center py-3 px-4 font-semibold text-purple-700">500MB</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">2GB</td>
-                  <td className="text-center py-3 px-4 font-semibold text-purple-700">5GB</td>
+                  <td className="text-center py-3 px-4 font-semibold text-purple-700">1GB</td>
                 </tr>
                 <tr className="border-b border-gray-100">
                   <td className="py-3 px-4 font-medium">Analytics</td>
@@ -392,10 +412,10 @@ const SubscriptionPage = () => {
         </div>
 
         {/* Enterprise Section */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl p-8 text-center">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl p-8 text-center mb-8">
           <h2 className="text-3xl font-bold mb-4">Enterprise & Institutional Plans</h2>
           <p className="text-lg mb-6 text-gray-300">
-            Medical schools, hospitals, and institutions can contact us for customized plans with unlimited AI access and team features.
+            Medical schools, hospitals, and institutions can contact us for customized plans with team features.
           </p>
           <button
             onClick={() => window.location.href = '/contact'}
@@ -403,6 +423,13 @@ const SubscriptionPage = () => {
           >
             Contact for Enterprise Plan
           </button>
+        </div>
+
+        {/* Company Info */}
+        <div className="text-center text-gray-500 text-sm">
+          <p className="font-semibold">ABUNDITA INVESTMENTS PTY LTD</p>
+          <p>ABN: 55 100 379 299</p>
+          <p>2/24 Edgar St, Coffs Harbour NSW 2450, Australia</p>
         </div>
       </div>
     </Layout>
