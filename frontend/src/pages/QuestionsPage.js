@@ -480,29 +480,57 @@ const QuestionsPage = () => {
       </div>
       
       <div className="space-y-3">
-        {/* Source Filter - Only enabled for paid subscriptions */}
+        {/* Source Filter - Checkbox style dropdown */}
         <div>
           <label className="block text-xs font-bold text-gray-800 mb-1">SOURCE</label>
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            className={`w-full px-3 py-3 border-2 rounded-xl text-sm font-medium ${
-              hasPaidSubscription 
-                ? 'border-gray-300 bg-gray-50 cursor-pointer' 
-                : 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-60'
-            }`}
-            disabled={!hasPaidSubscription}
-          >
-            <option value="all">All Questions</option>
-            <option value="une_priority">Priority Bank</option>
-            {hasPaidSubscription && (
-              <>
-                <option value="imported">My Uploaded</option>
-                <option value="shared">Shared Library</option>
-                <option value="sample">Sample Questions</option>
-              </>
+          <div className="relative">
+            <button
+              onClick={() => hasPaidSubscription && setShowSourceDropdown(!showSourceDropdown)}
+              className={`w-full px-3 py-3 border-2 rounded-xl text-sm font-medium text-left flex justify-between items-center ${
+                hasPaidSubscription 
+                  ? 'border-gray-300 bg-gray-50 cursor-pointer' 
+                  : 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-60'
+              }`}
+              disabled={!hasPaidSubscription}
+            >
+              <span>
+                {sourceFilter === 'all' ? 'All Questions' : 
+                 sourceFilter === 'une_priority' ? 'Priority Bank' :
+                 sourceFilter === 'imported' ? 'My Uploaded' :
+                 sourceFilter === 'shared' ? 'Shared Library' :
+                 sourceFilter === 'sample' ? 'Sample Questions' : 'All Questions'}
+              </span>
+              <svg className={`w-4 h-4 transition-transform ${showSourceDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {showSourceDropdown && hasPaidSubscription && (
+              <div className="absolute z-50 mt-1 w-full bg-white border-2 border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                {[
+                  { value: 'all', label: 'All Questions' },
+                  { value: 'une_priority', label: 'Priority Bank' },
+                  { value: 'imported', label: 'My Uploaded' },
+                  { value: 'shared', label: 'Shared Library' },
+                  { value: 'sample', label: 'Sample Questions' }
+                ].map(option => (
+                  <div 
+                    key={option.value}
+                    className="flex items-center px-3 py-3 hover:bg-gray-50 cursor-pointer active:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                    onClick={() => { setSourceFilter(option.value); setShowSourceDropdown(false); }}
+                  >
+                    <input
+                      type="radio"
+                      checked={sourceFilter === option.value}
+                      onChange={() => {}}
+                      className="mr-3 w-5 h-5"
+                    />
+                    <span className="text-sm font-medium">{option.label}</span>
+                  </div>
+                ))}
+              </div>
             )}
-          </select>
+          </div>
           {!hasPaidSubscription && (
             <p className="text-xs text-gray-500 mt-1">
               <a href="/subscription" className="text-blue-600 hover:underline">Upgrade</a> to filter by source
@@ -510,21 +538,50 @@ const QuestionsPage = () => {
           )}
         </div>
 
+        {/* Year Filter - Checkbox style dropdown */}
         <div>
           <label className="block text-xs font-bold text-gray-800 mb-1">YEAR</label>
-          <select
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            className="w-full px-3 py-3 border-2 border-blue-300 rounded-xl text-sm font-medium bg-gradient-to-r from-blue-50 to-purple-50"
-          >
-            <option value="all">All Years</option>
-            <option value="1">Year 1</option>
-            <option value="2">Year 2</option>
-            <option value="3">Year 3</option>
-            <option value="4">Year 4</option>
-            <option value="5">Year 5</option>
-            <option value="6">Year 6</option>
-          </select>
+          <div className="relative">
+            <button
+              onClick={() => setShowYearDropdown(!showYearDropdown)}
+              className="w-full px-3 py-3 border-2 border-blue-300 rounded-xl text-sm font-medium bg-gradient-to-r from-blue-50 to-purple-50 text-left flex justify-between items-center"
+            >
+              <span>
+                {year === 'all' ? 'All Years' : `Year ${year}`}
+              </span>
+              <svg className={`w-4 h-4 transition-transform ${showYearDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {showYearDropdown && (
+              <div className="absolute z-50 mt-1 w-full bg-white border-2 border-blue-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                {[
+                  { value: 'all', label: 'All Years' },
+                  { value: '1', label: 'Year 1' },
+                  { value: '2', label: 'Year 2' },
+                  { value: '3', label: 'Year 3' },
+                  { value: '4', label: 'Year 4' },
+                  { value: '5', label: 'Year 5' },
+                  { value: '6', label: 'Year 6' }
+                ].map(option => (
+                  <div 
+                    key={option.value}
+                    className="flex items-center px-3 py-3 hover:bg-blue-50 cursor-pointer active:bg-blue-100 border-b border-gray-100 last:border-b-0"
+                    onClick={() => { setYear(option.value); setShowYearDropdown(false); }}
+                  >
+                    <input
+                      type="radio"
+                      checked={year === option.value}
+                      onChange={() => {}}
+                      className="mr-3 w-5 h-5 accent-blue-500"
+                    />
+                    <span className="text-sm font-medium">{option.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div>
@@ -563,7 +620,7 @@ const QuestionsPage = () => {
                         type="checkbox"
                         checked={selectedCategories.includes(cat.value)}
                         onChange={() => {}}
-                        className="mr-3 w-5 h-5"
+                        className="mr-3 w-5 h-5 accent-green-500"
                       />
                       <span className="text-sm font-medium flex-1">{cat.label}</span>
                     </div>
@@ -574,19 +631,48 @@ const QuestionsPage = () => {
           </div>
         </div>
 
+        {/* Complexity Filter - Checkbox style dropdown */}
         <div>
           <label className="block text-xs font-bold text-gray-800 mb-1">COMPLEXITY</label>
-          <select
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value)}
-            className="w-full px-3 py-3 border-2 border-purple-300 rounded-xl text-sm font-medium bg-purple-50"
-          >
-            <option value="all">All Levels</option>
-            <option value="1">1 - Foundational</option>
-            <option value="2">2 - Competent</option>
-            <option value="3">3 - Proficient</option>
-            <option value="4">4 - Advanced</option>
-          </select>
+          <div className="relative">
+            <button
+              onClick={() => setShowComplexityDropdown(!showComplexityDropdown)}
+              className="w-full px-3 py-3 border-2 border-purple-300 rounded-xl text-sm font-medium bg-purple-50 text-left flex justify-between items-center"
+            >
+              <span>
+                {difficulty === 'all' ? 'All Levels' : `${difficulty} - ${complexityLabels[difficulty]}`}
+              </span>
+              <svg className={`w-4 h-4 transition-transform ${showComplexityDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {showComplexityDropdown && (
+              <div className="absolute z-50 mt-1 w-full bg-white border-2 border-purple-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                {[
+                  { value: 'all', label: 'All Levels' },
+                  { value: '1', label: '1 - Foundational' },
+                  { value: '2', label: '2 - Competent' },
+                  { value: '3', label: '3 - Proficient' },
+                  { value: '4', label: '4 - Advanced' }
+                ].map(option => (
+                  <div 
+                    key={option.value}
+                    className="flex items-center px-3 py-3 hover:bg-purple-50 cursor-pointer active:bg-purple-100 border-b border-gray-100 last:border-b-0"
+                    onClick={() => { setDifficulty(option.value); setShowComplexityDropdown(false); }}
+                  >
+                    <input
+                      type="radio"
+                      checked={difficulty === option.value}
+                      onChange={() => {}}
+                      className="mr-3 w-5 h-5 accent-purple-500"
+                    />
+                    <span className="text-sm font-medium">{option.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       
