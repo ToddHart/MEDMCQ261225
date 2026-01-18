@@ -514,8 +514,17 @@ async def forgot_password(
             "created_at": datetime.utcnow().isoformat()
         })
         
-        # TODO: Send email with reset link
-        logger.info(f"Password reset requested for {email} (tenant: {tenant_id}). Token: {reset_token}")
+        # Send password reset email
+        email_sent = send_password_reset_email(
+            to_email=email,
+            user_name=user.get('full_name', 'User'),
+            reset_token=reset_token
+        )
+        
+        if email_sent:
+            logger.info(f"Password reset email sent to {email} (tenant: {tenant_id})")
+        else:
+            logger.warning(f"Failed to send password reset email to {email}")
     
     # Always return success (don't reveal if email exists)
     return {"message": "If an account exists with this email, you will receive password reset instructions shortly."}
