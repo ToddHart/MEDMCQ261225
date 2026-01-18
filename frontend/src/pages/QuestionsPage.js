@@ -889,14 +889,14 @@ const QuestionsPage = () => {
           </>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 w-full overflow-x-hidden">
           {/* Desktop Sidebar */}
           <div className="hidden lg:block lg:col-span-1">
             <FilterPanel />
           </div>
 
           {/* Main Content - Question Card */}
-          <div className="lg:col-span-4 w-full overflow-hidden">
+          <div className="lg:col-span-4 w-full overflow-x-hidden">
             <div className="bg-white rounded-xl shadow-lg border-2 border-gray-100 w-full overflow-hidden">
               {/* Question Header - ALWAYS STICKY, with uniform badge sizes */}
               <div 
