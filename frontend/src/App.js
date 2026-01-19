@@ -18,6 +18,8 @@ import AdminPage from './pages/AdminPage';
 import CRMPage from './pages/CRMPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AdminEmailPage from './pages/AdminEmailPage';
+import ReportedIssuesPage from './pages/ReportedIssuesPage';
 
 // Tenant Loading Screen
 const TenantLoadingScreen = () => {
