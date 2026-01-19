@@ -329,7 +329,7 @@ const Layout = ({ children }) => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full px-2 sm:px-4 py-2" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>
+      <main className="flex-1 w-full px-2 sm:px-4 py-2 relative" style={{ maxWidth: '100vw', overflowX: 'hidden', zIndex: 1 }}>
         <div className="max-w-7xl mx-auto w-full">
           {children}
         </div>
