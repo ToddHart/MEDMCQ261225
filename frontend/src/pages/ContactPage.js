@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useTenant } from '../contexts/TenantContext';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const ContactPage = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
   const { tenant, getPrimaryColor } = useTenant();
   
   // Get tenant branding
@@ -17,10 +22,29 @@ const ContactPage = () => {
     document.title = `Contact | ${tenantName}`;
   }, [tenantName]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Thank you for your message! We will get back to you within 24 hours.');
-    setFormData({ name: '', email: '', message: '' });
+    setSubmitting(true);
+    setResult(null);
+    
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/contact`, {
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject || 'Contact Form Submission',
+        message: formData.message
+      });
+      
+      setResult({ success: true, message: response.data.message });
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (error) {
+      setResult({ 
+        success: false, 
+        message: error.response?.data?.detail || 'Failed to send message. Please try again.' 
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -29,6 +53,14 @@ const ContactPage = () => {
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Contact Us</h1>
         
         <div className="bg-white rounded-lg shadow-md p-8">
+          {result && (
+            <div className={`mb-6 p-4 rounded-lg ${
+              result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            }`}>
+              {result.message}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
@@ -38,6 +70,7 @@ const ContactPage = () => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 required
+                disabled={submitting}
               />
             </div>
             <div>
@@ -48,6 +81,18 @@ const ContactPage = () => {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 required
+                disabled={submitting}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+              <input
+                type="text"
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                placeholder="What is this about?"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                disabled={submitting}
               />
             </div>
             <div>
@@ -58,14 +103,16 @@ const ContactPage = () => {
                 rows={5}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 required
+                disabled={submitting}
               />
             </div>
             <button
               type="submit"
-              className="w-full py-3 text-white rounded-lg transition-colors hover:opacity-90"
+              disabled={submitting}
+              className="w-full py-3 text-white rounded-lg transition-colors hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: primaryColor }}
             >
-              Send Message
+              {submitting ? 'Sending...' : 'Send Message'}
             </button>
           </form>
         </div>
