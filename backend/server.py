@@ -2752,6 +2752,50 @@ async def get_user_subscription(user_id: str = Depends(get_current_user)):
         "payments_disabled": True
     }
 
+
+# ============================================================================
+# CONTACT FORM ROUTE
+# ============================================================================
+
+@api_router.post("/contact")
+async def submit_contact_form(data: dict):
+    """Submit contact form - sends email to support."""
+    name = data.get("name")
+    email = data.get("email")
+    subject = data.get("subject", "Contact Form Submission")
+    message = data.get("message")
+    
+    if not all([name, email, message]):
+        raise HTTPException(status_code=400, detail="Name, email, and message are required")
+    
+    # Store in database
+    contact_entry = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "email": email,
+        "subject": subject,
+        "message": message,
+        "submitted_at": datetime.utcnow().isoformat(),
+        "status": "new"
+    }
+    await db.contact_submissions.insert_one(contact_entry)
+    
+    # Send email notification to support
+    email_sent = send_contact_form_notification(
+        sender_name=name,
+        sender_email=email,
+        subject=subject,
+        message=message
+    )
+    
+    if email_sent:
+        logger.info(f"Contact form submitted by {email}, notification sent to support")
+    else:
+        logger.warning(f"Contact form submitted by {email}, but notification email failed")
+    
+    return {"success": True, "message": "Thank you for your message! We will get back to you within 24 hours."}
+
+
 # Include router in app
 app.include_router(api_router)
 
