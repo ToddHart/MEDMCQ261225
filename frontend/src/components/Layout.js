@@ -136,7 +136,7 @@ const Layout = ({ children }) => {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex space-x-1 ml-8 flex-shrink-0 items-center">
+            <nav className="hidden lg:flex space-x-1 ml-8 flex-shrink-0 items-center overflow-visible">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
