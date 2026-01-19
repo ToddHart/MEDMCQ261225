@@ -284,6 +284,152 @@ async def admin_run_migration(user_id: str = Depends(get_current_user)):
     return result
 
 
+# ============================================================================
+# ADMIN REPORTED ISSUES ROUTES
+# ============================================================================
+
+@api_router.get("/admin/reported-issues")
+async def admin_get_reported_issues(user_id: str = Depends(get_current_user)):
+    """Get all reported question issues (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get all reports with question details
+    reports = await db.question_reports.find({}, {"_id": 0}).sort("timestamp", -1).to_list(500)
+    
+    # Enrich with question data
+    for report in reports:
+        question = await db.questions.find_one(
+            {"id": report.get("question_id")}, 
+            {"_id": 0, "question": 1, "category": 1, "quarantined": 1}
+        )
+        if question:
+            report["question_text"] = question.get("question", "N/A")
+            report["question_category"] = question.get("category", "N/A")
+            report["question_quarantined"] = question.get("quarantined", False)
+        
+        # Get reporter info
+        user = await db.users.find_one(
+            {"id": report.get("user_id")},
+            {"_id": 0, "email": 1, "full_name": 1}
+        )
+        if user:
+            report["reporter_email"] = user.get("email", "Unknown")
+            report["reporter_name"] = user.get("full_name", "Unknown")
+    
+    return reports
+
+
+@api_router.put("/admin/reported-issues/{question_id}/status")
+async def admin_update_report_status(
+    question_id: str,
+    data: dict,
+    user_id: str = Depends(get_current_user)
+):
+    """Update the status of a reported question (admin only).
+    
+    Status options: pending, fixed, quarantined
+    """
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    new_status = data.get("status")
+    if new_status not in ["pending", "fixed", "quarantined"]:
+        raise HTTPException(status_code=400, detail="Invalid status. Use: pending, fixed, quarantined")
+    
+    # Update all reports for this question
+    await db.question_reports.update_many(
+        {"question_id": question_id},
+        {"$set": {"status": new_status, "resolved": new_status in ["fixed", "quarantined"]}}
+    )
+    
+    # Update question quarantine status
+    if new_status == "quarantined":
+        await db.questions.update_one(
+            {"id": question_id},
+            {"$set": {"quarantined": True}}
+        )
+    elif new_status == "fixed":
+        await db.questions.update_one(
+            {"id": question_id},
+            {"$set": {"quarantined": False}}
+        )
+    
+    logger.info(f"Admin {user_id} updated question {question_id} status to {new_status}")
+    return {"success": True, "message": f"Question status updated to {new_status}"}
+
+
+# ============================================================================
+# ADMIN EMAIL ROUTES
+# ============================================================================
+
+@api_router.get("/admin/users-for-email")
+async def admin_get_users_for_email(user_id: str = Depends(get_current_user)):
+    """Get list of users for email sending (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    users = await db.users.find(
+        {},
+        {"_id": 0, "id": 1, "email": 1, "full_name": 1, "subscription_plan": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(1000)
+    
+    return users
+
+
+@api_router.post("/admin/send-email")
+async def admin_send_email_to_user(
+    data: dict,
+    user_id: str = Depends(get_current_user)
+):
+    """Send email to specific user(s) from support@ (admin only)."""
+    if not await verify_admin(user_id):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    recipient_ids = data.get("user_ids", [])
+    subject = data.get("subject")
+    message = data.get("message")
+    
+    if not recipient_ids or not subject or not message:
+        raise HTTPException(status_code=400, detail="user_ids, subject, and message are required")
+    
+    results = []
+    for recipient_id in recipient_ids:
+        user = await db.users.find_one({"id": recipient_id}, {"_id": 0})
+        if user:
+            success = send_email_from_support(
+                to_email=user.get("email"),
+                subject=subject,
+                message_body=message,
+                user_name=user.get("full_name", "User")
+            )
+            results.append({
+                "user_id": recipient_id,
+                "email": user.get("email"),
+                "success": success
+            })
+            
+            # Log the email sent
+            await db.admin_email_log.insert_one({
+                "admin_id": user_id,
+                "recipient_id": recipient_id,
+                "recipient_email": user.get("email"),
+                "subject": subject,
+                "message": message,
+                "success": success,
+                "sent_at": datetime.utcnow().isoformat()
+            })
+    
+    successful = sum(1 for r in results if r["success"])
+    logger.info(f"Admin {user_id} sent emails: {successful}/{len(results)} successful")
+    
+    return {
+        "success": True,
+        "message": f"Emails sent: {successful}/{len(results)} successful",
+        "results": results
+    }
+
+
 @api_router.get("/admin/dashboard/multi-tenant")
 async def admin_multi_tenant_dashboard(user_id: str = Depends(get_current_user)):
     """Get multi-tenant dashboard statistics (admin only)."""
