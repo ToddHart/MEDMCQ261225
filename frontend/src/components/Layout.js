@@ -59,13 +59,21 @@ const Layout = ({ children }) => {
 
   const navLinks = desktopNavLinks;
 
-  // Add admin links if user is admin (for both desktop and mobile)
+  // Add admin links if user is admin (for mobile only - desktop uses dropdown)
   if (isAdmin) {
-    desktopNavLinks.push({ path: '/admin', label: 'Admin', icon: '⚙️' });
-    desktopNavLinks.push({ path: '/crm', label: 'CRM', icon: '👥' });
-    mobileNavLinks.push({ path: '/admin', label: 'Admin', icon: '⚙️' });
+    mobileNavLinks.push({ path: '/admin', label: 'Admin Dashboard', icon: '⚙️' });
     mobileNavLinks.push({ path: '/crm', label: 'CRM', icon: '👥' });
+    mobileNavLinks.push({ path: '/admin/email', label: 'Email Users', icon: '📧' });
+    mobileNavLinks.push({ path: '/admin/reported-issues', label: 'Reported Issues', icon: '⚠️' });
   }
+
+  // Admin dropdown items
+  const adminDropdownItems = [
+    { path: '/crm', label: 'CRM', icon: '👥' },
+    { path: '/admin/email', label: 'Email Users', icon: '📧' },
+    { path: '/admin', label: 'Admin Dashboard', icon: '⚙️' },
+    { path: '/admin/reported-issues', label: 'Reported Issues', icon: '⚠️' },
+  ];
 
   const handleLogout = () => {
     logout();
