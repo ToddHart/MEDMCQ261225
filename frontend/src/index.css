@@ -2,14 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lock horizontal scrolling on all pages */
+html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+}
+
+/* Prevent any element from causing horizontal overflow */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* Mobile-specific: Lock horizontal scroll completely */
+@media (max-width: 1023px) {
+    html {
+        overflow-x: hidden !important;
+        position: fixed;
+        width: 100%;
+    }
+    
+    body {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        position: relative;
+        width: 100%;
+        min-height: 100vh;
+    }
+    
+    /* Ensure root element handles scrolling */
+    #root {
+        overflow-x: hidden !important;
+        width: 100%;
+        max-width: 100vw;
+    }
+}
+
 body {
     margin: 0;
+    padding: 0;
     font-family:
         -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
         "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
         sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden !important;
+}
+
+/* Ensure containers don't overflow */
+.container {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
 }
 
 code {

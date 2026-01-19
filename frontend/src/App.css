@@ -3,6 +3,40 @@
     pointer-events: none;
 }
 
+/* Prevent horizontal scroll globally - MOBILE FIRST */
+html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+}
+
+/* Mobile-specific overflow prevention */
+@media (max-width: 1023px) {
+    html, body {
+        overflow-x: hidden !important;
+        position: relative;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+    
+    /* Prevent any horizontal scroll on mobile */
+    * {
+        max-width: 100vw;
+    }
+    
+    /* Force all containers to stay within viewport */
+    .mobile-container,
+    main,
+    .container,
+    [class*="container"] {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        box-sizing: border-box !important;
+    }
+}
+
 @media (prefers-reduced-motion: no-preference) {
     .App-logo {
         animation: App-logo-spin infinite 20s linear;
