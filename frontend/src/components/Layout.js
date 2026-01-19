@@ -167,7 +167,7 @@ const Layout = ({ children }) => {
               
               {/* Admin Dropdown */}
               {isAdmin && (
-                <div className="relative">
+                <div className="relative" ref={adminDropdownRef}>
                   <button
                     onClick={() => setAdminDropdownOpen(!adminDropdownOpen)}
                     className={`px-3 py-4 text-sm font-bold rounded-lg transition-all flex items-center justify-center whitespace-nowrap ${
