@@ -183,7 +183,14 @@ const Layout = ({ children }) => {
                   </button>
                   
                   {adminDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden" style={{ zIndex: 9999 }}>
+                    <div 
+                      className="fixed w-48 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden"
+                      style={{ 
+                        zIndex: 99999,
+                        top: '60px',
+                        right: '150px'
+                      }}
+                    >
                       {adminDropdownItems.map((item) => (
                         <Link
                           key={item.path}
