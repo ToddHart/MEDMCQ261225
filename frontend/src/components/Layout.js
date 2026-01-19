@@ -136,7 +136,7 @@ const Layout = ({ children }) => {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex space-x-1 ml-8 flex-shrink-0">
+            <nav className="hidden lg:flex space-x-1 ml-8 flex-shrink-0 items-center">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
@@ -144,15 +144,61 @@ const Layout = ({ children }) => {
                   className={`px-3 py-4 text-sm font-bold rounded-lg transition-all flex items-center justify-center whitespace-nowrap ${
                     location.pathname === link.path
                       ? 'text-white shadow-md'
-                      : link.path === '/admin' 
-                        ? 'text-red-700 hover:bg-red-100'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-700 hover:bg-gray-100'
                   }`}
                   style={location.pathname === link.path ? { backgroundColor: primaryColor } : {}}
                 >
                   {link.label}
                 </Link>
               ))}
+              
+              {/* Admin Dropdown */}
+              {isAdmin && (
+                <div className="relative">
+                  <button
+                    onClick={() => setAdminDropdownOpen(!adminDropdownOpen)}
+                    className={`px-3 py-4 text-sm font-bold rounded-lg transition-all flex items-center justify-center whitespace-nowrap ${
+                      location.pathname.startsWith('/admin') || location.pathname === '/crm'
+                        ? 'text-white shadow-md bg-red-600'
+                        : 'text-red-700 hover:bg-red-100'
+                    }`}
+                  >
+                    Admin
+                    <svg className={`ml-1 w-4 h-4 transition-transform ${adminDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {adminDropdownOpen && (
+                    <>
+                      {/* Backdrop to close dropdown */}
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setAdminDropdownOpen(false)}
+                      />
+                      
+                      {/* Dropdown Menu */}
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border-2 border-gray-200 z-50 overflow-hidden">
+                        {adminDropdownItems.map((item) => (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => setAdminDropdownOpen(false)}
+                            className={`block px-4 py-3 text-sm font-medium transition-colors ${
+                              location.pathname === item.path
+                                ? 'bg-red-100 text-red-700'
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className="mr-2">{item.icon}</span>
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </nav>
 
             {/* Right side: User */}
