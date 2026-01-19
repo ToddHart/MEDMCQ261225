@@ -170,32 +170,23 @@ const Layout = ({ children }) => {
                   </button>
                   
                   {adminDropdownOpen && (
-                    <>
-                      {/* Backdrop to close dropdown */}
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setAdminDropdownOpen(false)}
-                      />
-                      
-                      {/* Dropdown Menu */}
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border-2 border-gray-200 z-50 overflow-hidden">
-                        {adminDropdownItems.map((item) => (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => setAdminDropdownOpen(false)}
-                            className={`block px-4 py-3 text-sm font-medium transition-colors ${
-                              location.pathname === item.path
-                                ? 'bg-red-100 text-red-700'
-                                : 'text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            <span className="mr-2">{item.icon}</span>
-                            {item.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </>
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden" style={{ zIndex: 9999 }}>
+                      {adminDropdownItems.map((item) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setAdminDropdownOpen(false)}
+                          className={`block px-4 py-3 text-sm font-medium transition-colors ${
+                            location.pathname === item.path
+                              ? 'bg-red-100 text-red-700'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span className="mr-2">{item.icon}</span>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
