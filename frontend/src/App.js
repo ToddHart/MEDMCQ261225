@@ -169,6 +169,23 @@ function AppRoutes() {
       {/* Public Routes - No Auth Required */}
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* Admin Sub-Routes */}
+      <Route
+        path="/admin/email"
+        element={
+          <AdminRoute>
+            <AdminEmailPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/reported-issues"
+        element={
+          <AdminRoute>
+            <ReportedIssuesPage />
+          </AdminRoute>
+        }
+      />
     </Routes>
   );
 }
