@@ -37,7 +37,10 @@ from adaptive_learning import adaptive_engine
 from email_service import (
     send_verification_email,
     send_password_reset_email,
-    send_qualifying_session_email
+    send_qualifying_session_email,
+    send_email_from_support,
+    send_question_report_notification,
+    send_contact_form_notification
 )
 
 # Import tenant configuration
