@@ -11,6 +11,7 @@ const Layout = ({ children }) => {
   
   // Mobile menu state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
 
   // Lock horizontal scroll globally
   useEffect(() => {
