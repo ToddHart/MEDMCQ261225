@@ -1296,8 +1296,23 @@ async def report_question(
     
     report_dict = report.model_dump()
     report_dict['timestamp'] = report_dict['timestamp'].isoformat()
+    report_dict['status'] = 'pending'  # Add status field
     
     await db.question_reports.insert_one(report_dict)
+    
+    # Get question details and user info for email
+    question = await db.questions.find_one({"id": report.question_id}, {"_id": 0})
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    
+    # Send email notification to support
+    if question and user:
+        send_question_report_notification(
+            question_id=report.question_id,
+            question_text=question.get('question', 'N/A'),
+            report_reason=report.reason,
+            reporter_email=user.get('email', 'Unknown'),
+            reporter_name=user.get('full_name', 'Unknown User')
+        )
     
     # Check if this question has 4+ reports within this tenant
     report_count = await db.question_reports.count_documents({
@@ -1311,6 +1326,11 @@ async def report_question(
         await db.questions.update_one(
             {"id": report.question_id},
             {"$set": {"quarantined": True}}
+        )
+        # Update report status
+        await db.question_reports.update_many(
+            {"question_id": report.question_id, "tenant_id": tenant_id},
+            {"$set": {"status": "quarantined"}}
         )
         return {
             "success": True, 
