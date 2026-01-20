@@ -103,7 +103,7 @@ const Layout = ({ children }) => {
       {/* Header */}
       <header className="bg-white border-b-2 border-gray-200 shadow-sm sticky top-0 z-50 overflow-x-hidden max-w-full">
         <div className="container mx-auto px-4 overflow-x-hidden max-w-full">
-          <div className="flex items-center justify-between h-16 overflow-visible">
+          <div className="flex items-center justify-between h-16 overflow-x-hidden max-w-full">
             {/* Mobile Hamburger Button - LEFT SIDE */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
