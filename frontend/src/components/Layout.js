@@ -343,8 +343,8 @@ const Layout = ({ children }) => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-6 mt-auto">
-        <div className="container mx-auto px-4 text-center">
+      <footer className="bg-gray-800 text-white py-6 mt-auto overflow-x-hidden max-w-full">
+        <div className="container mx-auto px-4 text-center overflow-x-hidden max-w-full">
           <p className="text-sm">{tenantName} © 2025 - {tenantTagline}</p>
           <p className="text-xs text-gray-400 mt-1">
             A product of {footerCompany} {footerAbn && `• ABN: ${footerAbn}`}
