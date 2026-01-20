@@ -99,7 +99,7 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden max-w-full">
+    <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden max-w-full w-full">
       {/* Header */}
       <header className="bg-white border-b-2 border-gray-200 shadow-sm sticky top-0 z-50 overflow-visible">
         <div className="container mx-auto px-4 overflow-visible">
