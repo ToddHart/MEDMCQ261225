@@ -20,60 +20,93 @@ logger = logging.getLogger(__name__)
 # Email configuration from environment
 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.zoho.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
-SMTP_USERNAME = os.environ.get('SMTP_USERNAME', '')
-SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
-SMTP_FROM_EMAIL = os.environ.get('SMTP_FROM_EMAIL', '')
+
+# NoReply email (for system emails: verification, password reset)
+NOREPLY_EMAIL = os.environ.get('NOREPLY_EMAIL', '')
+NOREPLY_PASSWORD = os.environ.get('NOREPLY_PASSWORD', '')
+
+# Support email (for user-facing emails: contact, reports, admin emails)
+SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', '')
+SUPPORT_PASSWORD = os.environ.get('SUPPORT_PASSWORD', '')
+
+# Legacy fallback for backwards compatibility
+SMTP_USERNAME = os.environ.get('SMTP_USERNAME', NOREPLY_EMAIL)
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', NOREPLY_PASSWORD)
+SMTP_FROM_EMAIL = os.environ.get('SMTP_FROM_EMAIL', NOREPLY_EMAIL)
 SMTP_FROM_NAME = os.environ.get('SMTP_FROM_NAME', 'MedMCQ')
-SMTP_REPLY_TO = os.environ.get('SMTP_REPLY_TO', '')
+SMTP_REPLY_TO = os.environ.get('SMTP_REPLY_TO', SUPPORT_EMAIL)
+
 APP_URL = os.environ.get('APP_URL', 'http://localhost:3000')
 
 
-def send_email(to_email: str, subject: str, html_content: str, plain_content: str = None) -> bool:
+def send_email(
+    to_email: str,
+    subject: str,
+    html_content: str,
+    plain_content: str = None,
+    from_email: str = None,
+    from_name: str = None,
+    username: str = None,
+    password: str = None,
+    reply_to: str = None
+) -> bool:
     """
     Send an email using Zoho SMTP
-    
+
     Args:
         to_email: Recipient email address
         subject: Email subject
         html_content: HTML email body
         plain_content: Plain text alternative (optional)
-    
+        from_email: Override sender email (defaults to NOREPLY_EMAIL)
+        from_name: Override sender name (defaults to 'MedMCQ')
+        username: SMTP username (defaults to NOREPLY_EMAIL or from_email)
+        password: SMTP password (defaults to NOREPLY_PASSWORD)
+        reply_to: Reply-To address (defaults to SUPPORT_EMAIL)
+
     Returns:
         bool: True if sent successfully, False otherwise
     """
-    if not all([SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL]):
+    # Use provided values or defaults
+    from_email = from_email or NOREPLY_EMAIL or SMTP_FROM_EMAIL
+    from_name = from_name or SMTP_FROM_NAME
+    username = username or NOREPLY_EMAIL or SMTP_USERNAME
+    password = password or NOREPLY_PASSWORD or SMTP_PASSWORD
+    reply_to = reply_to or SUPPORT_EMAIL or SMTP_REPLY_TO
+
+    if not all([username, password, from_email]):
         logger.error("Email configuration incomplete. Check environment variables.")
         return False
-    
+
     try:
         # Create message
         message = MIMEMultipart("alternative")
         message["Subject"] = subject
-        message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
+        message["From"] = f"{from_name} <{from_email}>"
         message["To"] = to_email
-        if SMTP_REPLY_TO:
-            message["Reply-To"] = SMTP_REPLY_TO
-        
+        if reply_to:
+            message["Reply-To"] = reply_to
+
         # Add plain text version (required for better deliverability)
         if plain_content:
             part1 = MIMEText(plain_content, "plain")
             message.attach(part1)
-        
+
         # Add HTML version
         part2 = MIMEText(html_content, "html")
         message.attach(part2)
-        
+
         # Create secure connection and send
         context = ssl.create_default_context()
-        
+
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls(context=context)
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.sendmail(SMTP_FROM_EMAIL, to_email, message.as_string())
-        
-        logger.info(f"Email sent successfully to {to_email}")
+            server.login(username, password)
+            server.sendmail(from_email, to_email, message.as_string())
+
+        logger.info(f"Email sent successfully to {to_email} from {from_email}")
         return True
-        
+
     except smtplib.SMTPAuthenticationError as e:
         logger.error(f"SMTP Authentication failed: {e}")
         return False
@@ -88,9 +121,10 @@ def send_email(to_email: str, subject: str, html_content: str, plain_content: st
 def send_verification_email(to_email: str, user_name: str, verification_token: str) -> bool:
     """
     Send email verification link to new users
+    Uses noreply@ email address
     """
     verification_link = f"{APP_URL}/verify-email?token={verification_token}"
-    
+
     subject = "Verify Your MedMCQ Account"
     
     html_content = f"""
@@ -147,20 +181,31 @@ def send_verification_email(to_email: str, user_name: str, verification_token: s
     {verification_link}
     
     This link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
-    
+
     Best regards,
     The MedMCQ Team
     """
-    
-    return send_email(to_email, subject, html_content, plain_content)
+
+    return send_email(
+        to_email=to_email,
+        subject=subject,
+        html_content=html_content,
+        plain_content=plain_content,
+        from_email=NOREPLY_EMAIL,
+        from_name="MedMCQ",
+        username=NOREPLY_EMAIL,
+        password=NOREPLY_PASSWORD,
+        reply_to=SUPPORT_EMAIL
+    )
 
 
 def send_password_reset_email(to_email: str, user_name: str, reset_token: str) -> bool:
     """
     Send password reset link to users
+    Uses noreply@ email address
     """
     reset_link = f"{APP_URL}/reset-password?token={reset_token}"
-    
+
     subject = "Reset Your MedMCQ Password"
     
     html_content = f"""
@@ -221,12 +266,22 @@ def send_password_reset_email(to_email: str, user_name: str, reset_token: str) -
     This link will expire in 1 hour.
     
     If you didn't request a password reset, please ignore this email or contact support if you have concerns.
-    
+
     Best regards,
     The MedMCQ Team
     """
-    
-    return send_email(to_email, subject, html_content, plain_content)
+
+    return send_email(
+        to_email=to_email,
+        subject=subject,
+        html_content=html_content,
+        plain_content=plain_content,
+        from_email=NOREPLY_EMAIL,
+        from_name="MedMCQ",
+        username=NOREPLY_EMAIL,
+        password=NOREPLY_PASSWORD,
+        reply_to=SUPPORT_EMAIL
+    )
 
 
 def send_qualifying_session_email(to_email: str, user_name: str, sessions_completed: int, score: float) -> bool:
@@ -305,8 +360,18 @@ def send_qualifying_session_email(to_email: str, user_name: str, sessions_comple
     Keep up the great work!
     The MedMCQ Team
     """
-    
-    return send_email(to_email, subject, html_content, plain_content)
+
+    return send_email(
+        to_email=to_email,
+        subject=subject,
+        html_content=html_content,
+        plain_content=plain_content,
+        from_email=NOREPLY_EMAIL,
+        from_name="MedMCQ",
+        username=NOREPLY_EMAIL,
+        password=NOREPLY_PASSWORD,
+        reply_to=SUPPORT_EMAIL
+    )
 
 
 def send_email_from_support(to_email: str, subject: str, message_body: str, user_name: str = "User") -> bool:
@@ -314,12 +379,13 @@ def send_email_from_support(to_email: str, subject: str, message_body: str, user
     Send email from support@ (admin to user emails)
     Uses support@ as the from address for personal/reply-expected emails
     """
-    support_email = SMTP_REPLY_TO or 'support@medmcq.com.au'
-    
-    if not all([SMTP_USERNAME, SMTP_PASSWORD]):
-        logger.error("Email configuration incomplete. Check environment variables.")
+    support_email = SUPPORT_EMAIL or SMTP_REPLY_TO or 'support@medmcq.com.au'
+    support_password = SUPPORT_PASSWORD or SMTP_PASSWORD
+
+    if not all([support_email, support_password]):
+        logger.error("Support email configuration incomplete. Check SUPPORT_EMAIL and SUPPORT_PASSWORD environment variables.")
         return False
-    
+
     try:
         message = MIMEMultipart("alternative")
         message["Subject"] = subject
@@ -380,15 +446,15 @@ def send_email_from_support(to_email: str, subject: str, message_body: str, user
         message.attach(part2)
         
         context = ssl.create_default_context()
-        
+
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls(context=context)
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.login(support_email, support_password)
             server.sendmail(support_email, to_email, message.as_string())
-        
+
         logger.info(f"Support email sent successfully to {to_email}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error sending support email: {e}")
         return False
@@ -403,9 +469,10 @@ def send_question_report_notification(
 ) -> bool:
     """
     Send notification to support when a question is reported
+    Uses support@ email to receive reports
     """
-    support_email = SMTP_REPLY_TO or 'support@medmcq.com.au'
-    
+    support_email = SUPPORT_EMAIL or SMTP_REPLY_TO or 'support@medmcq.com.au'
+
     subject = f"Question Reported: {question_id}"
     
     html_content = f"""
@@ -466,11 +533,21 @@ def send_question_report_notification(
     
     Question Text:
     {question_text[:500]}{'...' if len(question_text) > 500 else ''}
-    
+
     Review this report in the admin panel.
     """
-    
-    return send_email(support_email, subject, html_content, plain_content)
+
+    return send_email(
+        to_email=support_email,
+        subject=subject,
+        html_content=html_content,
+        plain_content=plain_content,
+        from_email=NOREPLY_EMAIL,
+        from_name="MedMCQ System",
+        username=NOREPLY_EMAIL,
+        password=NOREPLY_PASSWORD,
+        reply_to=reporter_email  # Allow support to reply directly to reporter
+    )
 
 
 def send_contact_form_notification(
@@ -481,9 +558,10 @@ def send_contact_form_notification(
 ) -> bool:
     """
     Send notification to support when contact form is submitted
+    Uses support@ email to receive contact form submissions
     """
-    support_email = SMTP_REPLY_TO or 'support@medmcq.com.au'
-    
+    support_email = SUPPORT_EMAIL or SMTP_REPLY_TO or 'support@medmcq.com.au'
+
     email_subject = f"Contact Form: {subject}"
     
     html_content = f"""
@@ -543,5 +621,15 @@ def send_contact_form_notification(
     Message:
     {message}
     """
-    
-    return send_email(support_email, email_subject, html_content, plain_content)
+
+    return send_email(
+        to_email=support_email,
+        subject=email_subject,
+        html_content=html_content,
+        plain_content=plain_content,
+        from_email=NOREPLY_EMAIL,
+        from_name="MedMCQ System",
+        username=NOREPLY_EMAIL,
+        password=NOREPLY_PASSWORD,
+        reply_to=sender_email  # Allow support to reply directly to sender
+    )
