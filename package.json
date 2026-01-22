@@ -1,0 +1,29 @@
+{
+  "name": "lawn-maintenance-quote-calculator",
+  "version": "1.0.0",
+  "description": "Proof of concept for automated lawn maintenance quote calculator using property data and geospatial calculations",
+  "main": "lawn-quote-calculator-poc.js",
+  "scripts": {
+    "demo": "node lawn-quote-calculator-poc.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "lawn",
+    "maintenance",
+    "quote",
+    "calculator",
+    "geospatial",
+    "turf",
+    "property",
+    "landscaping"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@turf/turf": "^6.5.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lawn Maintenance Quote Calculator</title>
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #2ecc71, #27ae60);
+      color: white;
+      padding: 30px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 20px;
+    }
+
+    .sidebar {
+      background: white;
+      padding: 24px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      height: fit-content;
+    }
+
+    .map-container {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+      height: 600px;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #555;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #2ecc71;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #2ecc71;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #27ae60;
+    }
+
+    button:disabled {
+      background: #95a5a6;
+      cursor: not-allowed;
+    }
+
+    .quote-result {
+      margin-top: 24px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #2ecc71;
+    }
+
+    .quote-result.hidden {
+      display: none;
+    }
+
+    .quote-total {
+      font-size: 32px;
+      font-weight: 700;
+      color: #2ecc71;
+      margin: 16px 0;
+    }
+
+    .quote-breakdown {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.8;
+    }
+
+    .measurements {
+      background: white;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+
+    .info-box {
+      background: #e8f5e9;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #2e7d32;
+    }
+
+    .pricing-config {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 2px solid #e0e0e0;
+    }
+
+    .pricing-config h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #555;
+    }
+
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🌱 Lawn Maintenance Quote Calculator</h1>
+      <p class="tagline">Get instant quotes based on property size and service requirements</p>
+    </header>
+
+    <div class="main-content">
+      <div class="sidebar">
+        <div class="info-box">
+          ℹ️ This is a demo using sample property data. In production, this would connect to Regrid or Ecopia API.
+        </div>
+
+        <form id="quoteForm">
+          <div class="form-group">
+            <label for="address">Property Address</label>
+            <input
+              type="text"
+              id="address"
+              placeholder="123 Main Street, Minneapolis, MN"
+              value="123 Main Street, Minneapolis, MN 55401"
+            />
+          </div>
+
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="includeEdging" checked />
+            <label for="includeEdging" style="margin-bottom: 0;">Include edging in quote</label>
+          </div>
+
+          <button type="submit">Calculate Quote</button>
+        </form>
+
+        <div id="quoteResult" class="quote-result hidden">
+          <h3>Your Quote</h3>
+          <div class="quote-total" id="quoteTotal">$0.00</div>
+
+          <div class="measurements">
+            <div><strong>Lawn Area:</strong> <span id="lawnArea">-</span></div>
+            <div><strong>Perimeter:</strong> <span id="perimeter">-</span></div>
+          </div>
+
+          <div class="quote-breakdown" id="quoteBreakdown"></div>
+        </div>
+
+        <div class="pricing-config">
+          <h3>Pricing Configuration</h3>
+          <div class="form-group">
+            <label for="pricePerSqFt">Price per sq ft (mowing)</label>
+            <input type="number" id="pricePerSqFt" value="0.015" step="0.001" min="0" />
+          </div>
+          <div class="form-group">
+            <label for="edgingPrice">Price per linear ft (edging)</label>
+            <input type="number" id="edgingPrice" value="0.25" step="0.05" min="0" />
+          </div>
+          <div class="form-group">
+            <label for="baseFee">Base service fee</label>
+            <input type="number" id="baseFee" value="25.00" step="5" min="0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="map-container">
+        <div id="map"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sample property data (in production, this would come from API)
+    const SAMPLE_DATA = {
+      propertyBoundary: [
+        [-93.2650, 44.9778],
+        [-93.2648, 44.9778],
+        [-93.2648, 44.9775],
+        [-93.2650, 44.9775],
+        [-93.2650, 44.9778]
+      ],
+      structures: {
+        house: [
+          [-93.26495, 44.97775],
+          [-93.26485, 44.97775],
+          [-93.26485, 44.97765],
+          [-93.26495, 44.97765],
+          [-93.26495, 44.97775]
+        ],
+        driveway: [
+          [-93.26498, 44.97778],
+          [-93.26492, 44.97778],
+          [-93.26492, 44.97768],
+          [-93.26498, 44.97768],
+          [-93.26498, 44.97778]
+        ],
+        garage: [
+          [-93.26482, 44.97772],
+          [-93.26478, 44.97772],
+          [-93.26478, 44.97768],
+          [-93.26482, 44.97768],
+          [-93.26482, 44.97772]
+        ]
+      }
+    };
+
+    // Initialize map (Note: Replace 'YOUR_MAPBOX_TOKEN' with actual token)
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: [-93.2649, 44.97765],
+      zoom: 18
+    });
+
+    // Add navigation controls
+    map.addControl(new mapboxgl.NavigationControl());
+
+    // Calculate lawn area
+    function calculateLawnArea(propertyPoly, structures) {
+      let lawnArea = turf.polygon([propertyPoly]);
+
+      // Subtract each structure
+      Object.values(structures).forEach(structureCoords => {
+        const structure = turf.polygon([structureCoords]);
+        const difference = turf.difference(
+          turf.featureCollection([lawnArea, structure])
+        );
+        if (difference) {
+          lawnArea = difference;
+        }
+      });
+
+      const areaM2 = turf.area(lawnArea);
+      const areaSqFt = Math.round(areaM2 * 10.764);
+
+      return { areaSqFt, geometry: lawnArea };
+    }
+
+    // Calculate perimeter
+    function calculatePerimeter(lawnGeometry) {
+      const perimeterM = turf.length(turf.polygonToLine(lawnGeometry), { units: 'meters' });
+      const perimeterFt = Math.round(perimeterM * 3.28084);
+      return perimeterFt;
+    }
+
+    // Generate quote
+    function generateQuote(areaSqFt, perimeterFt, config) {
+      const mowingCost = areaSqFt * config.pricePerSqFt;
+      const edgingCost = config.includeEdging ? perimeterFt * config.edgingPrice : 0;
+      const subtotal = mowingCost + edgingCost;
+      const total = Math.max(subtotal, config.baseFee);
+
+      return {
+        areaSqFt,
+        perimeterFt,
+        mowingCost,
+        edgingCost,
+        total
+      };
+    }
+
+    // Display map layers
+    function displayPropertyOnMap(propertyData) {
+      map.on('load', () => {
+        // Add property boundary
+        map.addSource('property', {
+          type: 'geojson',
+          data: turf.polygon([propertyData.propertyBoundary])
+        });
+
+        map.addLayer({
+          id: 'property-fill',
+          type: 'fill',
+          source: 'property',
+          paint: {
+            'fill-color': '#2ecc71',
+            'fill-opacity': 0.1
+          }
+        });
+
+        map.addLayer({
+          id: 'property-outline',
+          type: 'line',
+          source: 'property',
+          paint: {
+            'line-color': '#2ecc71',
+            'line-width': 3
+          }
+        });
+
+        // Add structures
+        Object.entries(propertyData.structures).forEach(([name, coords]) => {
+          map.addSource(name, {
+            type: 'geojson',
+            data: turf.polygon([coords])
+          });
+
+          map.addLayer({
+            id: `${name}-fill`,
+            type: 'fill',
+            source: name,
+            paint: {
+              'fill-color': '#e74c3c',
+              'fill-opacity': 0.3
+            }
+          });
+
+          map.addLayer({
+            id: `${name}-outline`,
+            type: 'line',
+            source: name,
+            paint: {
+              'line-color': '#c0392b',
+              'line-width': 2
+            }
+          });
+        });
+      });
+    }
+
+    // Handle form submission
+    document.getElementById('quoteForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const config = {
+        pricePerSqFt: parseFloat(document.getElementById('pricePerSqFt').value),
+        edgingPrice: parseFloat(document.getElementById('edgingPrice').value),
+        baseFee: parseFloat(document.getElementById('baseFee').value),
+        includeEdging: document.getElementById('includeEdging').checked
+      };
+
+      // Calculate lawn area
+      const { areaSqFt, geometry } = calculateLawnArea(
+        SAMPLE_DATA.propertyBoundary,
+        SAMPLE_DATA.structures
+      );
+
+      // Calculate perimeter
+      const perimeterFt = calculatePerimeter(geometry);
+
+      // Generate quote
+      const quote = generateQuote(areaSqFt, perimeterFt, config);
+
+      // Display results
+      document.getElementById('quoteResult').classList.remove('hidden');
+      document.getElementById('quoteTotal').textContent = `$${quote.total.toFixed(2)}`;
+      document.getElementById('lawnArea').textContent = `${quote.areaSqFt.toLocaleString()} sq ft`;
+      document.getElementById('perimeter').textContent = `${quote.perimeterFt.toLocaleString()} ft`;
+
+      let breakdown = `
+        <div style="margin-top: 8px;">
+          <div>Mowing: $${quote.mowingCost.toFixed(2)}</div>
+          ${config.includeEdging ? `<div>Edging: $${quote.edgingCost.toFixed(2)}</div>` : ''}
+          <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #ddd;">
+            <strong>Total: $${quote.total.toFixed(2)}</strong>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('quoteBreakdown').innerHTML = breakdown;
+    });
+
+    // Initialize map with sample data
+    displayPropertyOnMap(SAMPLE_DATA);
+  </script>
+</body>
+</html>
