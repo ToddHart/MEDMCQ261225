@@ -99,11 +99,11 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden max-w-full w-full">
+    <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden w-full">
       {/* Header */}
-      <header className="bg-white border-b-2 border-gray-200 shadow-sm sticky top-0 z-50 overflow-x-hidden max-w-full">
-        <div className="container mx-auto px-4 overflow-x-hidden max-w-full">
-          <div className="flex items-center justify-between h-16 overflow-x-hidden max-w-full">
+      <header className="bg-white border-b-2 border-gray-200 shadow-sm sticky top-0 z-50 overflow-x-hidden w-full">
+        <div className="container mx-auto px-2 sm:px-4 overflow-x-hidden w-full">
+          <div className="flex items-center justify-between h-16 overflow-x-hidden w-full gap-2">
             {/* Mobile Hamburger Button - LEFT SIDE */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -122,22 +122,22 @@ const Layout = ({ children }) => {
             </button>
 
             {/* Logo */}
-            <Link to="/" className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+            <Link to="/" className="flex items-center space-x-2 sm:space-x-3 flex-shrink min-w-0">
               {/* Stethoscope Icon or Tenant Logo */}
               {tenant?.logo_url ? (
-                <img 
-                  src={tenant.logo_url} 
-                  alt={tenantName} 
-                  className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
+                <img
+                  src={tenant.logo_url}
+                  alt={tenantName}
+                  className="w-8 h-8 sm:w-10 sm:h-10 object-contain flex-shrink-0"
                 />
               ) : (
-                <svg 
-                  className="w-8 h-8 sm:w-10 sm:h-10" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke={primaryColor} 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
+                <svg
+                  className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={primaryColor}
+                  strokeWidth="2"
+                  strokeLinecap="round"
                   strokeLinejoin="round"
                 >
                   <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
@@ -145,7 +145,7 @@ const Layout = ({ children }) => {
                   <circle cx="20" cy="10" r="2"/>
                 </svg>
               )}
-              <span className="text-xl sm:text-3xl font-bold text-gray-800">{tenantName}</span>
+              <span className="text-xl sm:text-3xl font-bold text-gray-800 truncate">{tenantName}</span>
             </Link>
 
             {/* Desktop Navigation */}
@@ -183,12 +183,10 @@ const Layout = ({ children }) => {
                   </button>
                   
                   {adminDropdownOpen && (
-                    <div 
-                      className="fixed w-48 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden"
-                      style={{ 
-                        zIndex: 99999,
-                        top: '60px',
-                        right: '150px'
+                    <div
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border-2 border-gray-200 overflow-hidden"
+                      style={{
+                        zIndex: 99999
                       }}
                     >
                       {adminDropdownItems.map((item) => (
@@ -261,7 +259,7 @@ const Layout = ({ children }) => {
             />
             
             {/* Slide-out Menu - LEFT SIDE */}
-            <div className="lg:hidden fixed top-0 left-0 h-full w-72 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto">
+            <div className="lg:hidden fixed top-0 left-0 h-full w-72 max-w-[80vw] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto overflow-x-hidden">
               {/* Menu Header */}
               <div className="p-4 border-b border-gray-200 flex items-center justify-between" style={{ backgroundColor: primaryColor }}>
                 <div className="flex items-center space-x-3">
@@ -336,15 +334,15 @@ const Layout = ({ children }) => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 w-full px-2 sm:px-4 py-2 relative overflow-x-hidden max-w-full" style={{ maxWidth: '100vw', zIndex: 1 }}>
-        <div className="max-w-7xl mx-auto w-full overflow-x-hidden max-w-full">
+      <main className="flex-1 w-full px-2 sm:px-4 py-2 relative overflow-x-hidden" style={{ zIndex: 1 }}>
+        <div className="max-w-7xl mx-auto w-full overflow-x-hidden">
           {children}
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-6 mt-auto overflow-x-hidden max-w-full">
-        <div className="container mx-auto px-4 text-center overflow-x-hidden max-w-full">
+      <footer className="bg-gray-800 text-white py-6 mt-auto overflow-x-hidden w-full">
+        <div className="container mx-auto px-4 text-center overflow-x-hidden w-full">
           <p className="text-sm">{tenantName} © 2025 - {tenantTagline}</p>
           <p className="text-xs text-gray-400 mt-1">
             A product of {footerCompany} {footerAbn && `• ABN: ${footerAbn}`}
