@@ -1,0 +1,39 @@
+GERIATRIC PSYCHOLOGICAL ASSESSMENT
+
+Patient: [REDACTED], Age [REDACTED]
+Assessment Date: [REDACTED]
+
+Reason: Memory concerns, mood changes
+
+Instruments:
+• Mini-Mental State Examination (MMSE)
+• Geriatric Depression Scale (GDS)
+• Clock Drawing Test
+• Montreal Cognitive Assessment (MoCA)
+
+COGNITIVE RESULTS:
+MMSE: 26/30 (mild impairment suggested)
+MoCA: 23/30 (below cutoff)
+Areas of concern: delayed recall, executive function
+Preserved: language, attention
+
+MOOD ASSESSMENT:
+GDS: Score 8 (mild depression)
+Patient reports low energy, poor sleep, reduced interest
+
+FUNCTIONAL STATUS:
+Independent in basic ADLs
+Some difficulty with complex tasks (finances, medication management)
+
+IMPRESSION:
+Mild Cognitive Impairment with depressive features. Pattern suggests early cognitive changes that may represent prodromal dementia, though depression may be contributing to cognitive performance.
+
+PLAN:
+• Treat depression (therapy + medication consultation)
+• Cognitive stimulation activities
+• Safety assessment at home
+• Caregiver education
+• Neurologist referral
+• Repeat testing in 6 months
+
+Evaluator: [REDACTED], Geropsychologist

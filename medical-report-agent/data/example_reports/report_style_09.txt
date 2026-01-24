@@ -1,0 +1,32 @@
+Psychological Report
+
+Name: [REDACTED]
+DOB: [REDACTED]
+Test Date: [REDACTED]
+
+Tests: Intelligence testing, personality assessment, symptom checklists
+
+Intelligence (WAIS-IV):
+- Verbal: 105 (average)
+- Performance: 102 (average)
+- Full Scale IQ: 103 (average)
+
+Personality (MMPI-2):
+- Valid profile obtained
+- Elevations on depression and social discomfort scales
+- No psychotic features
+
+Symptoms:
+- Low mood: present
+- Social withdrawal: significant
+- Anxiety in groups: marked
+
+Summary: Average intelligence. Personality profile suggests depression with social anxiety features. Client is experiencing significant distress in social situations.
+
+Treatment Plan:
+1. Individual therapy for depression
+2. Social skills training
+3. Gradual exposure to social situations
+4. Medication evaluation
+
+Psychologist: [REDACTED]

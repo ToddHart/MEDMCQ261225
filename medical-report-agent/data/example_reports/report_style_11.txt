@@ -1,0 +1,34 @@
+Learning Disability Assessment
+
+Student: [REDACTED] | Grade: [REDACTED]
+
+Tests Given:
+- Reading comprehension tests
+- Math achievement tests  
+- Processing speed measures
+- Memory assessments
+
+Results:
+
+READING: Below grade level (15th percentile)
+Decoding skills weak, comprehension impacted
+
+MATH: Grade appropriate (48th percentile)
+Calculation skills adequate
+
+PROCESSING: Slow (22nd percentile)
+Visual processing particularly affected
+
+MEMORY: Average (55th percentile)
+No memory deficits
+
+Conclusion: Specific learning disability in reading. Processing speed deficits contributing to academic challenges.
+
+Recommendations:
+- Specialized reading instruction
+- Extra time on tests
+- Assistive technology
+- IEP development
+- Annual progress monitoring
+
+Evaluator: [REDACTED], School Psychologist

@@ -1,0 +1,53 @@
+NEUROPSYCHOLOGICAL EVALUATION
+
+Patient ID: [REDACTED]
+Evaluation Date: [REDACTED]
+Age: [REDACTED] years
+
+REFERRAL QUESTION:
+Assessment of cognitive functioning in the context of reported memory difficulties and mood changes.
+
+ASSESSMENT METHODS:
+1. Neuropsychological Battery (NPB)
+2. Wechsler Memory Scale-IV (WMS-IV)
+3. Beck Depression Inventory-II (BDI-II)
+4. Clinical interview and review of records
+
+BACKGROUND:
+The patient is a [REDACTED]-year-old [REDACTED] reporting gradual onset of memory problems over the past year. Medical history significant for hypertension, well-controlled on medication.
+
+COGNITIVE FINDINGS:
+
+General Cognitive Abilities:
+Performance on the neuropsychological battery placed in the average range for age (45th percentile). This represents adequate functioning across most cognitive domains.
+
+Memory:
+Verbal Memory: 68th percentile - adequate
+Visual Memory: 72nd percentile - adequate
+Delayed Recall: 65th percentile - low average, suggesting mild consolidation difficulties
+Working Memory: 75th percentile - adequate
+
+Language and Visuospatial Skills:
+Language functions (85th percentile) and visuospatial abilities (78th percentile) are well-preserved.
+
+Executive Functions:
+Executive functioning (65th percentile) and processing speed (62nd percentile) fall in the average to low-average range, which may reflect age-related changes.
+
+EMOTIONAL STATUS:
+BDI-II score of 22 indicates moderate depressive symptoms. The patient endorsed low energy, sleep disturbance, and reduced interest in activities.
+
+DIAGNOSTIC IMPRESSION:
+The pattern of results suggests mild cognitive changes that may be consistent with normal aging, though the depressive symptoms may be contributing to subjective memory complaints. No evidence of dementia at this time.
+
+RECOMMENDATIONS:
+1. Treatment of depression (psychotherapy and/or medication consultation)
+2. Cognitive exercises to maintain mental stimulation
+3. Cardiovascular health optimization
+4. Follow-up neuropsychological testing in 12-18 months
+5. Sleep study if sleep problems persist
+
+This evaluation was conducted over [REDACTED] hours across [REDACTED] sessions.
+
+____________________________
+[REDACTED], Ph.D., ABPP
+Board Certified Clinical Neuropsychologist
