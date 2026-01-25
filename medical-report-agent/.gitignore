@@ -1,0 +1,35 @@
+# API Keys and Secrets
+set_api_key.local.sh
+*.local.sh
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Output files (optional - comment out if you want to commit sample outputs)
+# output/
+# *.docx
+# *.pdf
+# *.png
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
