@@ -16,11 +16,12 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo Starting Medical Report Agent...
+echo Starting Medical Report Agent Web Interface...
+echo The application will open in your browser automatically.
 echo.
 
 REM Run the setup and launcher in WSL
-wsl bash -c "cd ~ && ([ -d MEDMCQ261225 ] || bash <(curl -s https://raw.githubusercontent.com/ToddHart/MEDMCQ261225/claude/secure-medical-agents-TkKPt/medical-report-agent/setup_windows_wsl.sh)) && cd MEDMCQ261225/medical-report-agent && ./launch_medical_reports.sh"
+wsl bash -c "cd ~ && ([ -d MEDMCQ261225 ] || bash <(curl -s https://raw.githubusercontent.com/ToddHart/MEDMCQ261225/claude/secure-medical-agents-TkKPt/medical-report-agent/setup_windows_wsl.sh)) && cd MEDMCQ261225/medical-report-agent && chmod +x launch_gui.sh && ./launch_gui.sh"
 
 echo.
 echo Medical Report Agent closed.

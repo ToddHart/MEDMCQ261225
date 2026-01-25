@@ -19,7 +19,7 @@ $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
 
 # Set shortcut properties
 $Shortcut.TargetPath = "wsl.exe"
-$Shortcut.Arguments = 'bash -c "cd ~ && ([ -d MEDMCQ261225 ] || bash <(curl -s https://raw.githubusercontent.com/ToddHart/MEDMCQ261225/claude/secure-medical-agents-TkKPt/medical-report-agent/setup_windows_wsl.sh)) && cd MEDMCQ261225/medical-report-agent && ./launch_medical_reports.sh; read -p ''Press Enter to close...''"'
+$Shortcut.Arguments = 'bash -c "cd ~ && ([ -d MEDMCQ261225 ] || bash <(curl -s https://raw.githubusercontent.com/ToddHart/MEDMCQ261225/claude/secure-medical-agents-TkKPt/medical-report-agent/setup_windows_wsl.sh)) && cd MEDMCQ261225/medical-report-agent && chmod +x launch_gui.sh && ./launch_gui.sh"'
 
 $Shortcut.WorkingDirectory = "%USERPROFILE%"
 $Shortcut.Description = "Generate medical psychological reports"

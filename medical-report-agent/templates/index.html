@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Report Agent | 2026</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="background">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <rect width="40" height="40" rx="12" fill="url(#gradient1)"/>
+                    <path d="M12 20h16M20 12v16" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                    <defs>
+                        <linearGradient id="gradient1" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#667eea"/>
+                            <stop offset="100%" stop-color="#764ba2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Medical Report Agent</h1>
+            </div>
+            <div class="header-info">
+                <span class="status-indicator"></span>
+                <span>AI Powered</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <button class="nav-item active" data-view="generate">
+                        <span class="nav-icon">📝</span>
+                        <span>Generate Report</span>
+                    </button>
+                    <button class="nav-item" data-view="patients">
+                        <span class="nav-icon">👥</span>
+                        <span>Patients</span>
+                    </button>
+                    <button class="nav-item" data-view="recent">
+                        <span class="nav-icon">📋</span>
+                        <span>Recent Reports</span>
+                    </button>
+                    <button class="nav-item" data-view="settings">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Settings</span>
+                    </button>
+                </nav>
+
+                <div class="sidebar-footer">
+                    <div class="stats-card">
+                        <div class="stat-item">
+                            <span class="stat-label">Training Files</span>
+                            <span class="stat-value" id="training-files-count">--</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Patients</span>
+                            <span class="stat-value" id="patients-count">--</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Generate Report View -->
+                <div id="generate-view" class="view active">
+                    <div class="view-header">
+                        <h2>Generate Medical Report</h2>
+                        <p>Select a patient and generate a professional psychological assessment report</p>
+                    </div>
+
+                    <div class="form-card">
+                        <div class="form-group">
+                            <label for="patient-select">Select Patient</label>
+                            <select id="patient-select" class="form-control">
+                                <option value="">Loading patients...</option>
+                            </select>
+                        </div>
+
+                        <div id="patient-info" class="patient-info" style="display: none;">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <span class="info-label">Age</span>
+                                    <span class="info-value" id="patient-age">--</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Gender</span>
+                                    <span class="info-value" id="patient-gender">--</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Assessment Date</span>
+                                    <span class="info-value" id="patient-date">--</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Number of Tests</span>
+                                    <span class="info-value" id="patient-tests">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Output Format</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="format" value="word" checked>
+                                    <span>Word Document</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="format" value="pdf">
+                                    <span>PDF Document</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="format" value="both">
+                                    <span>Both Formats</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button id="generate-btn" class="btn-primary">
+                            <span class="btn-icon">✨</span>
+                            <span>Generate Report</span>
+                        </button>
+                    </div>
+
+                    <!-- Results -->
+                    <div id="results" class="results-card" style="display: none;">
+                        <div class="results-header">
+                            <h3>✅ Report Generated Successfully!</h3>
+                            <p id="results-patient">--</p>
+                        </div>
+                        <div class="results-files">
+                            <div id="word-file" class="file-card" style="display: none;">
+                                <div class="file-icon">📄</div>
+                                <div class="file-info">
+                                    <span class="file-name">Word Document</span>
+                                    <span class="file-path">--</span>
+                                </div>
+                                <button class="btn-secondary btn-open-word">
+                                    <span>Open in Word</span>
+                                </button>
+                            </div>
+                            <div id="pdf-file" class="file-card" style="display: none;">
+                                <div class="file-icon">📕</div>
+                                <div class="file-info">
+                                    <span class="file-name">PDF Document</span>
+                                    <span class="file-path">--</span>
+                                </div>
+                                <button class="btn-secondary btn-open-pdf">
+                                    <span>Open PDF</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Patients View -->
+                <div id="patients-view" class="view">
+                    <div class="view-header">
+                        <h2>Patient Database</h2>
+                        <p>View all patients in the system</p>
+                    </div>
+                    <div id="patients-list" class="patients-grid">
+                        <div class="loading">Loading patients...</div>
+                    </div>
+                </div>
+
+                <!-- Recent Reports View -->
+                <div id="recent-view" class="view">
+                    <div class="view-header">
+                        <h2>Recent Reports</h2>
+                        <p>View and open recently generated reports</p>
+                    </div>
+                    <div id="recent-list" class="reports-list">
+                        <div class="loading">Loading reports...</div>
+                    </div>
+                </div>
+
+                <!-- Settings View -->
+                <div id="settings-view" class="view">
+                    <div class="view-header">
+                        <h2>Settings</h2>
+                        <p>Configure paths and system settings</p>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="setting-card">
+                            <h3>📁 Training Data Location</h3>
+                            <p>Location of example reports for style learning</p>
+                            <div class="path-display" id="training-path">--</div>
+                            <button class="btn-secondary" onclick="alert('File browser integration: Select folder in WSL filesystem')">
+                                Change Location
+                            </button>
+                        </div>
+
+                        <div class="setting-card">
+                            <h3>👥 Patient Database</h3>
+                            <p>Location of patient test data (JSON)</p>
+                            <div class="path-display" id="patient-db-path">--</div>
+                            <button class="btn-secondary" onclick="alert('File browser integration: Select patients.json file')">
+                                Change Location
+                            </button>
+                        </div>
+
+                        <div class="setting-card">
+                            <h3>📂 Output Directory</h3>
+                            <p>Where generated reports are saved</p>
+                            <div class="path-display" id="output-path">--</div>
+                            <button class="btn-secondary" onclick="openOutputFolder()">
+                                Open Folder
+                            </button>
+                        </div>
+
+                        <div class="setting-card">
+                            <h3>🎨 Report Style</h3>
+                            <p>Number of example reports for style learning</p>
+                            <div class="stat-large" id="style-count">--</div>
+                            <p class="hint">Recommended: 20+ reports for best results</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Generating report...</p>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
