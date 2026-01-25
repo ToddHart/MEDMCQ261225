@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Medical Report Agent
+Comment=Generate secure medical psychological reports
+Exec=/usr/bin/x-terminal-emulator -e /home/user/MEDMCQ261225/medical-report-agent/launch_medical_reports.sh
+Icon=accessories-text-editor
+Terminal=true
+Categories=Office;
+StartupNotify=true
