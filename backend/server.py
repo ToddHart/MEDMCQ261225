@@ -1407,16 +1407,75 @@ async def import_questions(
     user_id: str = Depends(get_current_user),
     tenant_id: str = Depends(get_current_tenant)
 ):
-    """Import questions from Excel/CSV file with duplicate detection and tenant assignment."""
+    """Import questions from Excel/CSV/Word/PDF file with duplicate detection and tenant assignment."""
     try:
         # Read file
         contents = await file.read()
-        
+        filename_lower = file.filename.lower()
+
         # Parse based on file type
-        if file.filename.endswith('.csv'):
+        if filename_lower.endswith('.csv'):
             df = pd.read_csv(io.BytesIO(contents))
-        else:
+        elif filename_lower.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(io.BytesIO(contents))
+        elif filename_lower.endswith(('.docx', '.doc')):
+            # For Word documents, try to extract text and parse
+            try:
+                from docx import Document
+                doc = Document(io.BytesIO(contents))
+
+                # Try to find tables in the document
+                if doc.tables:
+                    # Extract data from the first table
+                    table = doc.tables[0]
+                    data = []
+                    headers = [cell.text.strip() for cell in table.rows[0].cells]
+                    for row in table.rows[1:]:
+                        row_data = [cell.text.strip() for cell in row.cells]
+                        data.append(row_data)
+                    df = pd.DataFrame(data, columns=headers)
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Word document must contain a table with question data. Please use Excel/CSV format or ensure your Word document has a properly formatted table."
+                    )
+            except ImportError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Word document support not available. Please install python-docx package or use Excel/CSV format instead."
+                )
+        elif filename_lower.endswith('.pdf'):
+            # For PDF files, try to extract tables
+            try:
+                import pdfplumber
+                with pdfplumber.open(io.BytesIO(contents)) as pdf:
+                    all_tables = []
+                    for page in pdf.pages:
+                        tables = page.extract_tables()
+                        if tables:
+                            all_tables.extend(tables)
+
+                    if not all_tables:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="No tables found in PDF. Please ensure your PDF contains a properly formatted table with question data, or use Excel/CSV format instead."
+                        )
+
+                    # Use the first table
+                    table = all_tables[0]
+                    headers = table[0]
+                    data = table[1:]
+                    df = pd.DataFrame(data, columns=headers)
+            except ImportError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="PDF support not available. Please install pdfplumber package or use Excel/CSV format instead."
+                )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file format. Supported formats: Excel (.xlsx, .xls), CSV (.csv), Word (.docx, .doc), PDF (.pdf)"
+            )
         
         # Validate columns - updated with new format including year
         required_columns = [

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { importQuestions } from '../api/endpoints';
 import { useTenant } from '../contexts/TenantContext';
@@ -7,6 +7,8 @@ const ImportPage = () => {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
   const { tenant } = useTenant();
   
   // Get tenant branding
@@ -18,7 +20,36 @@ const ImportPage = () => {
   }, [tenantName]);
 
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setResult(null);
+    }
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0]);
+      setResult(null);
+    }
+  };
+
+  const handleBrowseClick = () => {
+    fileInputRef.current?.click();
   };
 
   const handleImport = async () => {
@@ -163,23 +194,82 @@ const ImportPage = () => {
               correctAnswer, explanation, category, subCategory, year, level
             </p>
             <p className="text-sm text-gray-500 mb-4">
-              Supported formats: .xlsx, .xls, .csv
+              Supported formats: Excel (.xlsx, .xls), CSV (.csv), Word (.docx, .doc), PDF (.pdf)
             </p>
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleFileChange}
-              className="mb-4"
-            />
+
+            {/* Drag and Drop Zone */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 mb-4 transition-colors ${
+                dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,.docx,.doc,.pdf"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <div className="text-center">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <p className="text-gray-600 mb-2">
+                  {dragActive ? 'Drop file here' : 'Drag and drop your file here'}
+                </p>
+                <p className="text-gray-500 text-sm mb-3">or</p>
+                <button
+                  type="button"
+                  onClick={handleBrowseClick}
+                  className="px-4 py-2 bg-white border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold"
+                >
+                  Browse Files
+                </button>
+              </div>
+            </div>
+
             {file && (
-              <p className="text-sm text-green-600 mb-4">✓ Selected: {file.name}</p>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-green-800 font-medium">{file.name}</span>
+                  </div>
+                  <button
+                    onClick={() => setFile(null)}
+                    className="text-red-600 hover:text-red-800 text-sm font-semibold"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <p className="text-sm text-green-600 mt-1 ml-7">
+                  Size: {(file.size / 1024).toFixed(2)} KB
+                </p>
+              </div>
             )}
+
             <button
               onClick={handleImport}
               disabled={loading || !file}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
             >
-              {loading ? 'Importing...' : 'Import Questions'}
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Importing...
+                </span>
+              ) : (
+                'Import Questions'
+              )}
             </button>
           </div>
         </div>
