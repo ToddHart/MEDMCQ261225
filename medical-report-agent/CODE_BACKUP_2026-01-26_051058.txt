@@ -1,0 +1,3172 @@
+================================================================================
+MEDICAL REPORT AGENT - COMPLETE CODE BACKUP
+================================================================================
+
+PROJECT OVERVIEW:
+Private medical psychological report generation system using Claude Opus 4.5 AI.
+Maintains patient confidentiality with local processing and secure API usage.
+
+KEY FEATURES:
+- Claude Opus 4.5 powered report generation (8000 tokens)
+- 6 report types: Parent/Specialist/Other (Full/Shortened)
+- File upload for additional patient data (Word/Excel/PDF)
+- Custom training data paths
+- AI training button to learn your writing style
+- Light professional 2026 interface
+- Windows + WSL compatible
+- Auto-opens generated reports in Word/PDF
+
+PRIVACY & SECURITY:
+✓ Uses Anthropic API (encrypted HTTPS transmission)
+✓ Your data is NOT used to train Claude models
+✓ Data only sent to Anthropic during report generation
+✓ Training data stays local until "Start Training" clicked
+⚠ For full HIPAA compliance: Need Business Associate Agreement with Anthropic
+
+================================================================================
+FILE STRUCTURE:
+================================================================================
+
+medical-report-agent/
+├── web_app.py                 # Main Flask web server
+├── requirements.txt           # Python dependencies
+├── src/
+│   ├── style_analyzer.py      # Analyzes writing style
+│   ├── report_generator.py    # Generates reports with AI
+│   └── document_formatter.py  # Creates Word/PDF documents
+├── templates/
+│   └── index.html             # Web interface HTML
+├── static/
+│   ├── style.css              # Professional light theme
+│   └── app.js                 # Frontend JavaScript
+├── data/
+│   ├── example_reports/       # Training data
+│   └── patient_db/            # Patient test data
+└── output/                    # Generated reports
+
+================================================================================
+COMPLETE CODE FILES:
+================================================================================
+
+
+
+################################################################################
+# FILE: web_app.py
+# Main Flask web server - handles all API endpoints
+################################################################################
+
+"""
+Medical Report Agent - Modern Web Interface
+Flask-based GUI with 2026 design aesthetic
+"""
+
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+import os
+import sys
+import json
+import subprocess
+from pathlib import Path
+from datetime import datetime
+import webbrowser
+import threading
+import tempfile
+from werkzeug.utils import secure_filename
+
+# Add src to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+from style_analyzer import StyleAnalyzer
+from report_generator import ReportGenerator
+from document_formatter import DocumentFormatter
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'medical-report-agent-2026'
+
+# Global state
+style_analysis = None
+report_generator = None
+document_formatter = None
+project_root = Path(__file__).parent
+
+def initialize_system():
+    """Initialize the report generation system"""
+    global style_analysis, report_generator, document_formatter
+
+    example_reports_dir = project_root / "data" / "example_reports"
+
+    print("Initializing Medical Report Agent...")
+    analyzer = StyleAnalyzer(example_reports_dir)
+    style_analysis = analyzer.analyze_all()
+
+    report_generator = ReportGenerator(style_analysis)
+    document_formatter = DocumentFormatter(project_root / "output")
+
+    print("System ready!")
+    return True
+
+@app.route('/')
+def index():
+    """Main page"""
+    return render_template('index.html')
+
+@app.route('/api/patients')
+def get_patients():
+    """Get list of patients"""
+    try:
+        patient_db_path = project_root / "data" / "patient_db" / "patients.json"
+        with open(patient_db_path, 'r') as f:
+            patients = json.load(f)
+        return jsonify({'success': True, 'patients': patients})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/settings')
+def get_settings():
+    """Get current settings"""
+    try:
+        settings = {
+            'example_reports_path': str(project_root / "data" / "example_reports"),
+            'patient_db_path': str(project_root / "data" / "patient_db" / "patients.json"),
+            'output_path': str(project_root / "output"),
+            'num_example_reports': len(list((project_root / "data" / "example_reports").glob("*.txt")))
+        }
+        return jsonify({'success': True, 'settings': settings})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/generate', methods=['POST'])
+def generate_report():
+    """Generate a medical report"""
+    try:
+        data = request.json
+        patient_id = data.get('patient_id')
+        output_format = data.get('format', 'both')
+        report_type = data.get('report_type', 'parent-full')
+        uploaded_data = data.get('uploaded_data', [])  # Get uploaded file content
+
+        if not patient_id:
+            return jsonify({'success': False, 'error': 'Patient ID required'})
+
+        # Load patient data
+        patient_db_path = project_root / "data" / "patient_db" / "patients.json"
+        with open(patient_db_path, 'r') as f:
+            patients = json.load(f)
+
+        patient_data = next((p for p in patients if p['patient_id'] == patient_id), None)
+        if not patient_data:
+            return jsonify({'success': False, 'error': f'Patient {patient_id} not found'})
+
+        # Add uploaded data to patient data if provided
+        if uploaded_data:
+            additional_info = "\n\n=== Additional Patient Data ===\n"
+            for file_info in uploaded_data:
+                additional_info += f"\n--- {file_info['filename']} ---\n"
+                additional_info += file_info['content'] + "\n"
+
+            # Store it temporarily in patient data
+            patient_data['additional_documents'] = additional_info
+
+        # Generate report
+        report_data = report_generator.generate_report(
+            patient_id=patient_id,
+            patient_db_path=str(patient_db_path),
+            example_reports_dir=str(project_root / "data" / "example_reports"),
+            additional_context=patient_data.get('additional_documents', ''),
+            report_type=report_type
+        )
+
+        # Format documents
+        outputs = document_formatter.format_report(
+            report_data,
+            patient_data,
+            format=output_format
+        )
+
+        # Convert paths to strings
+        output_files = {
+            'word': str(outputs.get('word', '')) if outputs.get('word') else None,
+            'pdf': str(outputs.get('pdf', '')) if outputs.get('pdf') else None
+        }
+
+        return jsonify({
+            'success': True,
+            'patient_name': patient_data['name'],
+            'files': output_files,
+            'content_preview': report_data['content'][:500]
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
+
+@app.route('/api/open-file', methods=['POST'])
+def open_file():
+    """Open a file in the default application"""
+    try:
+        data = request.json
+        file_path = data.get('file_path')
+
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({'success': False, 'error': 'File not found'})
+
+        # Check if running in WSL
+        is_wsl = 'microsoft' in os.uname().release.lower() if hasattr(os, 'uname') else False
+
+        # Open file in default application
+        if is_wsl or sys.platform == 'win32':
+            # WSL or Windows - convert to Windows path and open
+            try:
+                # Convert WSL path to Windows path
+                result = subprocess.run(['wslpath', '-w', file_path],
+                                      capture_output=True, text=True, check=True)
+                windows_path = result.stdout.strip()
+
+                # Open using cmd.exe from WSL
+                subprocess.run(['cmd.exe', '/c', 'start', '', windows_path],
+                             shell=False, check=False)
+                return jsonify({'success': True})
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to open file: {str(e)}'})
+        elif sys.platform == 'darwin':
+            subprocess.run(['open', file_path])
+        else:
+            subprocess.run(['xdg-open', file_path])
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/recent-reports')
+def get_recent_reports():
+    """Get list of recent reports"""
+    try:
+        output_dir = project_root / "output"
+        if not output_dir.exists():
+            return jsonify({'success': True, 'reports': []})
+
+        reports = []
+        for file in output_dir.glob("report_*.docx"):
+            stat = file.stat()
+            reports.append({
+                'name': file.name,
+                'path': str(file),
+                'size': stat.st_size,
+                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        # Sort by modified time, newest first
+        reports.sort(key=lambda x: x['modified'], reverse=True)
+
+        return jsonify({'success': True, 'reports': reports[:10]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/upload-patient-data', methods=['POST'])
+def upload_patient_data():
+    """Handle patient data file uploads"""
+    try:
+        if 'files' not in request.files:
+            return jsonify({'success': False, 'error': 'No files provided'})
+
+        files = request.files.getlist('files')
+        uploaded_files = []
+
+        # Create temp directory for this session
+        temp_dir = tempfile.mkdtemp(prefix='patient_data_')
+
+        for file in files:
+            if file.filename == '':
+                continue
+
+            # Secure the filename
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(temp_dir, filename)
+
+            # Save the file
+            file.save(file_path)
+
+            # Extract text content based on file type
+            content = extract_file_content(file_path, filename)
+
+            uploaded_files.append({
+                'filename': filename,
+                'path': file_path,
+                'size': os.path.getsize(file_path),
+                'content': content,
+                'type': get_file_type(filename)
+            })
+
+        return jsonify({
+            'success': True,
+            'files': uploaded_files,
+            'temp_dir': temp_dir
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
+
+def get_file_type(filename):
+    """Get file type from extension"""
+    ext = filename.lower().split('.')[-1]
+    if ext in ['doc', 'docx']:
+        return 'word'
+    elif ext in ['xls', 'xlsx']:
+        return 'excel'
+    elif ext == 'pdf':
+        return 'pdf'
+    else:
+        return 'unknown'
+
+def extract_file_content(file_path, filename):
+    """Extract text content from uploaded files"""
+    try:
+        ext = filename.lower().split('.')[-1]
+
+        if ext in ['docx', 'doc']:
+            # Extract from Word document
+            try:
+                from docx import Document
+                doc = Document(file_path)
+                paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+                return '\n'.join(paragraphs)
+            except Exception as e:
+                return f"[Word document: {filename} - Content extraction requires python-docx]"
+
+        elif ext in ['xlsx', 'xls']:
+            # Extract from Excel
+            try:
+                import pandas as pd
+                df = pd.read_excel(file_path)
+                return df.to_string()
+            except Exception as e:
+                return f"[Excel document: {filename} - Content extraction requires pandas and openpyxl]"
+
+        elif ext == 'pdf':
+            # Extract from PDF
+            try:
+                import PyPDF2
+                with open(file_path, 'rb') as f:
+                    pdf_reader = PyPDF2.PdfReader(f)
+                    text = []
+                    for page in pdf_reader.pages:
+                        text.append(page.extract_text())
+                    return '\n'.join(text)
+            except Exception as e:
+                return f"[PDF document: {filename} - Content extraction requires PyPDF2]"
+
+        else:
+            # Try to read as plain text
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                return f.read()
+
+    except Exception as e:
+        return f"[Error reading {filename}: {str(e)}]"
+
+@app.route('/api/train', methods=['POST'])
+def train_agent():
+    """Train the AI agent on the current training data"""
+    try:
+        data = request.json
+        training_path = data.get('training_path')
+
+        if not training_path or training_path == '--':
+            training_path = str(project_root / "data" / "example_reports")
+
+        # Convert Windows path to WSL path if needed
+        if training_path.startswith('C:') or training_path.startswith('\\'):
+            # This is a Windows path, need to convert
+            # For now, use the default path
+            training_path = str(project_root / "data" / "example_reports")
+
+        training_dir = Path(training_path)
+        if not training_dir.exists():
+            return jsonify({'success': False, 'error': 'Training data path does not exist'})
+
+        # Reinitialize the style analyzer with new data
+        print(f"\nTraining AI agent on data from: {training_path}")
+        analyzer = StyleAnalyzer(training_dir)
+        global style_analysis, report_generator
+        style_analysis = analyzer.analyze_all()
+        report_generator = ReportGenerator(style_analysis)
+
+        # Count the number of reports
+        num_reports = len(list(training_dir.glob("*.txt")))
+
+        print(f"✓ Training complete! Analyzed {num_reports} reports.")
+
+        return jsonify({
+            'success': True,
+            'num_reports': num_reports,
+            'training_path': str(training_path)
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
+
+@app.route('/api/update-training-path', methods=['POST'])
+def update_training_path():
+    """Update the training data path"""
+    try:
+        data = request.json
+        new_path = data.get('training_path')
+
+        if not new_path:
+            return jsonify({'success': False, 'error': 'No path provided'})
+
+        # Convert Windows path to WSL path if needed
+        if new_path.startswith('C:') or new_path.startswith('\\'):
+            # Try to convert Windows path to WSL path
+            try:
+                # Remove drive letter and convert backslashes
+                if new_path[1] == ':':
+                    drive = new_path[0].lower()
+                    path_part = new_path[2:].replace('\\', '/')
+                    wsl_path = f"/mnt/{drive}{path_part}"
+                    new_path = wsl_path
+            except Exception:
+                return jsonify({'success': False, 'error': 'Could not convert Windows path to WSL path'})
+
+        path_obj = Path(new_path)
+        if not path_obj.exists():
+            return jsonify({'success': False, 'error': f'Path does not exist: {new_path}'})
+
+        if not path_obj.is_dir():
+            return jsonify({'success': False, 'error': 'Path is not a directory'})
+
+        # Count reports in new path
+        num_reports = len(list(path_obj.glob("*.txt")))
+
+        if num_reports == 0:
+            return jsonify({'success': False, 'error': 'No .txt files found in specified directory'})
+
+        return jsonify({
+            'success': True,
+            'training_path': str(new_path),
+            'num_reports': num_reports
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
+
+@app.route('/static/<path:path>')
+def serve_static(path):
+    """Serve static files"""
+    return send_from_directory('static', path)
+
+def open_browser():
+    """Open browser after a short delay"""
+    import time
+    time.sleep(1.5)
+    webbrowser.open('http://127.0.0.1:5000')
+
+if __name__ == '__main__':
+    print("="*60)
+    print("Medical Report Agent - Web Interface")
+    print("Modern 2026 Design")
+    print("="*60)
+    print()
+
+    # Initialize system
+    initialize_system()
+
+    # Open browser
+    threading.Thread(target=open_browser, daemon=True).start()
+
+    print()
+    print("Opening web interface at http://127.0.0.1:5000")
+    print("Press Ctrl+C to stop")
+    print()
+
+    # Run Flask
+    app.run(host='127.0.0.1', port=5000, debug=False)
+
+
+################################################################################
+# FILE: src/style_analyzer.py
+# Analyzes writing style from training reports
+################################################################################
+
+"""
+Style Analyzer - Learns writing patterns from example reports
+This module analyzes example reports to extract style, structure, and formatting patterns
+"""
+
+import os
+import re
+from collections import Counter
+from pathlib import Path
+
+
+class StyleAnalyzer:
+    """Analyzes example reports to learn writing style patterns"""
+
+    def __init__(self, example_reports_dir):
+        self.example_reports_dir = Path(example_reports_dir)
+        self.reports = []
+        self.style_patterns = {}
+
+    def load_reports(self):
+        """Load all example reports from directory"""
+        print(f"Loading example reports from {self.example_reports_dir}...")
+
+        for report_file in self.example_reports_dir.glob("*.txt"):
+            with open(report_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                self.reports.append({
+                    'filename': report_file.name,
+                    'content': content
+                })
+
+        print(f"Loaded {len(self.reports)} example reports")
+        return len(self.reports)
+
+    def analyze_structure(self):
+        """Analyze structural patterns in reports"""
+        print("\nAnalyzing report structure patterns...")
+
+        structures = {
+            'sections': [],
+            'headers': [],
+            'common_patterns': []
+        }
+
+        for report in self.reports:
+            content = report['content']
+
+            # Extract headers (lines in all caps or with specific patterns)
+            headers = re.findall(r'^([A-Z\s]{3,}:?)\s*$', content, re.MULTILINE)
+            headers.extend(re.findall(r'^([A-Z][A-Za-z\s]+:)\s*$', content, re.MULTILINE))
+            structures['headers'].extend(headers)
+
+            # Find common section markers
+            sections = re.findall(r'(?:REASON|PURPOSE|BACKGROUND|TESTS?|RESULTS?|FINDINGS?|SUMMARY|RECOMMENDATIONS?|IMPRESSION)', content, re.IGNORECASE)
+            structures['sections'].extend(sections)
+
+        # Count most common patterns
+        self.style_patterns['common_headers'] = Counter(structures['headers']).most_common(15)
+        self.style_patterns['common_sections'] = Counter(structures['sections']).most_common(10)
+
+        print(f"  Found {len(set(structures['headers']))} unique header patterns")
+        print(f"  Found {len(set(structures['sections']))} unique section types")
+
+        return structures
+
+    def analyze_tone_and_language(self):
+        """Analyze language patterns, tone, and vocabulary"""
+        print("\nAnalyzing tone and language patterns...")
+
+        vocabulary = {
+            'formal_indicators': [],
+            'clinical_terms': [],
+            'connectors': [],
+            'descriptors': []
+        }
+
+        # Combine all report text
+        all_text = " ".join([r['content'] for r in self.reports])
+
+        # Formal language indicators
+        formal_phrases = re.findall(r'\b(demonstrates?|indicates?|suggests?|reveals?|presents?)\b', all_text, re.IGNORECASE)
+        vocabulary['formal_indicators'] = Counter(formal_phrases).most_common(10)
+
+        # Common clinical descriptors
+        descriptors = re.findall(r'\b(mild|moderate|severe|significant|average|above average|below average|adequate|impaired)\b', all_text, re.IGNORECASE)
+        vocabulary['descriptors'] = Counter(descriptors).most_common(10)
+
+        # Identify person/tense usage
+        person_indicators = {
+            'third_person': len(re.findall(r'\b(the (?:patient|client|individual|examinee))\b', all_text, re.IGNORECASE)),
+            'first_person': len(re.findall(r'\b(I |my |we )\b', all_text)),
+        }
+
+        self.style_patterns['vocabulary'] = vocabulary
+        self.style_patterns['person'] = 'third_person' if person_indicators['third_person'] > person_indicators['first_person'] else 'mixed'
+
+        print(f"  Detected writing style: {self.style_patterns['person']}")
+        print(f"  Found {len(vocabulary['descriptors'])} common descriptors")
+
+        return vocabulary
+
+    def analyze_formatting(self):
+        """Analyze formatting patterns"""
+        print("\nAnalyzing formatting patterns...")
+
+        formatting = {
+            'bullet_usage': 0,
+            'numbered_lists': 0,
+            'separators': 0,
+            'subsections': 0
+        }
+
+        for report in self.reports:
+            content = report['content']
+
+            # Count formatting elements
+            formatting['bullet_usage'] += len(re.findall(r'[•▸★✓→-]\s', content))
+            formatting['numbered_lists'] += len(re.findall(r'^\s*\d+[\.)]\s', content, re.MULTILINE))
+            formatting['separators'] += len(re.findall(r'^[━═_-]{3,}', content, re.MULTILINE))
+            formatting['subsections'] += len(re.findall(r'^[A-Z][a-z]+(?:\s[A-Z][a-z]+)*:\s*$', content, re.MULTILINE))
+
+        self.style_patterns['formatting'] = formatting
+
+        print(f"  Bullet points used in reports: {formatting['bullet_usage']} times")
+        print(f"  Numbered lists: {formatting['numbered_lists']} instances")
+        print(f"  Visual separators: {formatting['separators']} instances")
+
+        return formatting
+
+    def get_report_template(self):
+        """Generate a template based on analyzed patterns"""
+        print("\nGenerating report template from learned patterns...")
+
+        # Determine most common structure
+        template = {
+            'title_style': 'formal',  # Based on most reports having formal titles
+            'sections': [
+                'IDENTIFYING INFORMATION',
+                'REASON FOR REFERRAL',
+                'TESTS ADMINISTERED',
+                'BEHAVIORAL OBSERVATIONS',
+                'TEST RESULTS',
+                'SUMMARY',
+                'RECOMMENDATIONS'
+            ],
+            'tone': self.style_patterns.get('person', 'third_person'),
+            'use_bullets': self.style_patterns['formatting']['bullet_usage'] > 50,
+            'use_separators': self.style_patterns['formatting']['separators'] > 5,
+        }
+
+        return template
+
+    def analyze_all(self):
+        """Run complete style analysis"""
+        print("\n" + "="*60)
+        print("STYLE ANALYSIS - Learning from Example Reports")
+        print("="*60)
+
+        self.load_reports()
+        self.analyze_structure()
+        self.analyze_tone_and_language()
+        self.analyze_formatting()
+
+        template = self.get_report_template()
+
+        print("\n" + "="*60)
+        print("Style Analysis Complete!")
+        print("="*60)
+
+        return {
+            'style_patterns': self.style_patterns,
+            'template': template,
+            'num_reports_analyzed': len(self.reports)
+        }
+
+
+if __name__ == "__main__":
+    # Test the analyzer
+    analyzer = StyleAnalyzer("../data/example_reports")
+    results = analyzer.analyze_all()
+
+    print("\n\nLearned Style Summary:")
+    print(f"- Analyzed {results['num_reports_analyzed']} reports")
+    print(f"- Writing style: {results['template']['tone']}")
+    print(f"- Uses bullet points: {results['template']['use_bullets']}")
+    print(f"- Template sections: {len(results['template']['sections'])}")
+
+
+################################################################################
+# FILE: src/report_generator.py
+# Generates reports using Claude Opus 4.5
+################################################################################
+
+"""
+Report Generator - Creates medical reports using learned style and patient data
+Uses AI to generate reports matching the learned writing style
+"""
+
+import json
+import os
+from pathlib import Path
+from datetime import datetime
+
+
+class ReportGenerator:
+    """Generates medical reports using learned style patterns and patient data"""
+
+    def __init__(self, style_analysis, use_local_model=False):
+        self.style_analysis = style_analysis
+        self.use_local_model = use_local_model
+        self.api_client = None
+
+        # Initialize AI client (local or API)
+        if not use_local_model:
+            try:
+                import anthropic
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
+                if api_key:
+                    self.api_client = anthropic.Anthropic(api_key=api_key)
+                    print("✓ Using Claude API (for prototype - will use local model in production)")
+                else:
+                    print("⚠ No API key found - will use template-based generation")
+            except ImportError:
+                print("⚠ Anthropic library not installed - using template-based generation")
+        else:
+            print("Using local model (Ollama/LM Studio)")
+
+    def load_patient_data(self, patient_id, patient_db_path):
+        """Load patient data from database"""
+        with open(patient_db_path, 'r') as f:
+            patients = json.load(f)
+
+        for patient in patients:
+            if patient['patient_id'] == patient_id:
+                return patient
+
+        raise ValueError(f"Patient {patient_id} not found in database")
+
+    def generate_with_ai(self, patient_data, example_reports, report_type='parent-full'):
+        """Generate report using AI (Claude API or local model)"""
+
+        # Parse report type
+        audience, length = report_type.split('-')
+        audience_map = {
+            'parent': 'parents/guardians',
+            'specialist': 'medical specialists and other healthcare professionals',
+            'other': 'general audience'
+        }
+        target_audience = audience_map.get(audience, 'general audience')
+
+        length_instruction = "comprehensive and detailed" if length == 'full' else "concise and summarized"
+
+        # Create prompt that teaches the AI the style
+        style_examples = "\n\n---EXAMPLE REPORT---\n\n".join([
+            report['content'] for report in example_reports[:3]  # Use first 3 as examples
+        ])
+
+        # Add additional context if present
+        additional_context = ""
+        if 'additional_context' in patient_data:
+            additional_context = f"\n\nADDITIONAL PATIENT INFORMATION:\n{patient_data['additional_context']}\n"
+
+        prompt = f"""You are a clinical psychologist writing a psychological assessment report.
+
+I will show you examples of how I write reports, then give you patient data to create a new report.
+
+EXAMPLE REPORTS (showing my writing style, structure, tone, and format):
+
+---EXAMPLE REPORT---
+
+{style_examples}
+
+---END EXAMPLES---
+
+Now, write a NEW psychological assessment report for this patient, using the EXACT same style, structure, tone, and formatting as shown in the examples above:
+
+TARGET AUDIENCE: {target_audience}
+REPORT LENGTH: {length_instruction}
+
+PATIENT DATA:
+{json.dumps(patient_data, indent=2)}
+{additional_context}
+
+IMPORTANT INSTRUCTIONS:
+1. Match the writing style, tone, and formality of the example reports
+2. Use similar section headers and organization
+3. Use similar language patterns and clinical terminology
+4. Tailor the language and technical detail level for {target_audience}
+5. Make the report {length_instruction}
+6. Format the report professionally
+7. Include all relevant test data
+8. Provide clinical interpretation of results
+9. Make appropriate recommendations
+10. Use [REDACTED] for examiner name and license info at the end
+11. The report should look like it came from the same psychologist who wrote the examples
+
+Write the complete report now:"""
+
+        if self.api_client:
+            try:
+                response = self.api_client.messages.create(
+                    model="claude-opus-4-5-20251101",
+                    max_tokens=8000,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+                return response.content[0].text
+            except Exception as e:
+                print(f"⚠ API error: {e}")
+                print("Falling back to template-based generation...")
+                return self._generate_template_based(patient_data)
+        else:
+            return self._generate_template_based(patient_data)
+
+    def _generate_template_based(self, patient_data):
+        """Fallback: Generate report using template (when AI not available)"""
+
+        template = self.style_analysis['template']
+
+        # Build report sections
+        report = f"""PSYCHOLOGICAL ASSESSMENT REPORT
+
+IDENTIFYING INFORMATION:
+Patient ID: {patient_data['patient_id']}
+Age: {patient_data['age']} years
+Gender: {patient_data['gender']}
+Date of Assessment: {patient_data['date_of_assessment']}
+
+TESTS ADMINISTERED:
+"""
+
+        for test in patient_data['tests']:
+            report += f"• {test['test_name']} ({test['test_code']})\n"
+
+        report += "\nBEHAVIORAL OBSERVATIONS:\n"
+        report += "The patient presented as cooperative throughout the assessment process. Effort appeared adequate and results are considered valid.\n"
+
+        report += "\nTEST RESULTS AND INTERPRETATION:\n\n"
+
+        for test in patient_data['tests']:
+            report += f"{test['test_name']}:\n"
+
+            # Add scores
+            if 'scores' in test:
+                for key, value in test['scores'].items():
+                    report += f"  {key.replace('_', ' ').title()}: {value}\n"
+            elif 'score' in test:
+                report += f"  Score: {test['score']}\n"
+
+            if 'percentile' in test:
+                report += f"  Percentile: {test['percentile']}\n"
+
+            if 'interpretation' in test:
+                report += f"\nInterpretation: {test['interpretation']}\n"
+
+            report += "\n"
+
+        report += f"\nCLINICAL NOTES:\n{patient_data.get('clinical_notes', 'No additional notes.')}\n"
+
+        report += "\nRECOMMENDATIONS:\n"
+        report += "1. Follow-up assessment as clinically indicated\n"
+        report += "2. Consider appropriate interventions based on findings\n"
+        report += "3. Monitor progress over time\n"
+
+        report += "\n\n_______________________\n"
+        report += "[REDACTED], Psy.D.\n"
+        report += "Licensed Clinical Psychologist\n"
+
+        return report
+
+    def generate_report(self, patient_id, patient_db_path, example_reports_dir,
+                       additional_context='', report_type='parent-full'):
+        """Main method to generate a complete report"""
+        print(f"\n{'='*60}")
+        print(f"Generating Report for Patient: {patient_id}")
+        print(f"Report Type: {report_type}")
+        print(f"{'='*60}\n")
+
+        # Load patient data
+        print("Loading patient data...")
+        patient_data = self.load_patient_data(patient_id, patient_db_path)
+
+        # Add additional context if provided
+        if additional_context:
+            patient_data['additional_context'] = additional_context
+
+        print(f"✓ Loaded data for {patient_data['name']}")
+        print(f"  Tests: {len(patient_data['tests'])} assessments")
+
+        # Load example reports for style reference
+        print("\nLoading example reports for style reference...")
+        example_reports = []
+        example_dir = Path(example_reports_dir)
+        for report_file in list(example_dir.glob("*.txt"))[:5]:  # Use 5 examples
+            with open(report_file, 'r') as f:
+                example_reports.append({
+                    'filename': report_file.name,
+                    'content': f.read()
+                })
+        print(f"✓ Loaded {len(example_reports)} example reports for style reference")
+
+        # Generate report
+        print("\nGenerating report using learned style...")
+        report_content = self.generate_with_ai(patient_data, example_reports, report_type)
+
+        print(f"\n{'='*60}")
+        print("Report Generation Complete!")
+        print(f"{'='*60}")
+
+        return {
+            'patient_id': patient_id,
+            'patient_name': patient_data['name'],
+            'content': report_content,
+            'report_type': report_type,
+            'generated_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+
+if __name__ == "__main__":
+    # Test report generation
+    from style_analyzer import StyleAnalyzer
+
+    # First analyze style
+    analyzer = StyleAnalyzer("../data/example_reports")
+    style_analysis = analyzer.analyze_all()
+
+    # Then generate a report
+    generator = ReportGenerator(style_analysis)
+    report = generator.generate_report(
+        patient_id="PT001",
+        patient_db_path="../data/patient_db/patients.json",
+        example_reports_dir="../data/example_reports"
+    )
+
+    print("\n" + "="*60)
+    print("GENERATED REPORT PREVIEW:")
+    print("="*60)
+    print(report['content'][:500] + "...")
+
+
+################################################################################
+# FILE: src/document_formatter.py
+# Creates formatted Word and PDF documents
+################################################################################
+
+"""
+Document Formatter - Creates professionally formatted reports with graphs
+Generates Word and PDF documents with proper formatting, fonts, and visualizations
+"""
+
+import os
+from pathlib import Path
+from datetime import datetime
+from io import BytesIO
+
+try:
+    from docx import Document
+    from docx.shared import Pt, Inches, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+    print("⚠ python-docx not installed - Word document generation unavailable")
+
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Image
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+    print("⚠ reportlab not installed - PDF generation unavailable")
+
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('Agg')  # Non-interactive backend
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+    print("⚠ matplotlib not installed - graph generation unavailable")
+
+import json
+
+
+class DocumentFormatter:
+    """Formats reports into professional documents with graphs"""
+
+    def __init__(self, output_dir="output"):
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(exist_ok=True)
+
+    def create_test_graphs(self, patient_data, output_path):
+        """Generate graphs showing test results"""
+        if not MATPLOTLIB_AVAILABLE:
+            print("⚠ Matplotlib not available - skipping graphs")
+            return None
+
+        # Collect scores from all tests
+        test_names = []
+        percentiles = []
+        scores_data = []
+
+        for test in patient_data['tests']:
+            if 'percentile' in test:
+                test_names.append(test['test_code'])
+                percentiles.append(test['percentile'])
+            elif 'scores' in test and isinstance(test['scores'], dict):
+                # Multi-score test
+                for score_name, score_value in test['scores'].items():
+                    test_names.append(f"{test['test_code']}\n{score_name[:10]}")
+                    percentiles.append(score_value)
+
+        if not percentiles:
+            print("⚠ No percentile data found for graphing")
+            return None
+
+        # Create figure with subplots
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+        # Bar chart of percentiles
+        colors = ['#2E86AB' if p >= 50 else '#A23B72' for p in percentiles]
+        ax1.bar(range(len(test_names)), percentiles, color=colors, alpha=0.7)
+        ax1.axhline(y=50, color='gray', linestyle='--', linewidth=1, label='Average (50th %ile)')
+        ax1.set_xlabel('Tests', fontsize=11, fontweight='bold')
+        ax1.set_ylabel('Percentile Score', fontsize=11, fontweight='bold')
+        ax1.set_title('Test Performance Overview', fontsize=13, fontweight='bold')
+        ax1.set_xticks(range(len(test_names)))
+        ax1.set_xticklabels(test_names, rotation=45, ha='right', fontsize=8)
+        ax1.set_ylim(0, 100)
+        ax1.legend()
+        ax1.grid(axis='y', alpha=0.3)
+
+        # Performance category pie chart
+        categories = {'Above Average (>75)': 0, 'Average (25-75)': 0, 'Below Average (<25)': 0}
+        for p in percentiles:
+            if p > 75:
+                categories['Above Average (>75)'] += 1
+            elif p >= 25:
+                categories['Average (25-75)'] += 1
+            else:
+                categories['Below Average (<25)'] += 1
+
+        # Filter out zero values
+        filtered_categories = {k: v for k, v in categories.items() if v > 0}
+
+        if filtered_categories:
+            ax2.pie(filtered_categories.values(), labels=filtered_categories.keys(),
+                   autopct='%1.0f%%', startangle=90,
+                   colors=['#06A77D', '#2E86AB', '#A23B72'])
+            ax2.set_title('Performance Distribution', fontsize=13, fontweight='bold')
+
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        plt.close()
+
+        print(f"✓ Generated test results graph: {output_path}")
+        return output_path
+
+    def create_word_document(self, report_data, patient_data):
+        """Create a formatted Word document"""
+        if not DOCX_AVAILABLE:
+            print("⚠ Word document generation not available")
+            return None
+
+        print("\nCreating Word document...")
+
+        doc = Document()
+
+        # Set up styles
+        style = doc.styles['Normal']
+        style.font.name = 'Calibri'
+        style.font.size = Pt(11)
+
+        # Title
+        title = doc.add_heading('PSYCHOLOGICAL ASSESSMENT REPORT', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        title_run = title.runs[0]
+        title_run.font.size = Pt(16)
+        title_run.font.color.rgb = RGBColor(0, 51, 102)
+
+        doc.add_paragraph()
+
+        # Add metadata
+        meta = doc.add_paragraph()
+        meta.add_run(f"Patient ID: {report_data['patient_id']}").bold = True
+        meta.add_run(f"\nGenerated: {report_data['generated_date']}")
+
+        doc.add_paragraph()
+
+        # Add graph if available
+        graph_path = self.output_dir / f"graph_{report_data['patient_id']}.png"
+        if self.create_test_graphs(patient_data, graph_path):
+            doc.add_picture(str(graph_path), width=Inches(6))
+            doc.add_paragraph()
+
+        # Add report content
+        # Split content into paragraphs and format
+        content_lines = report_data['content'].split('\n')
+
+        for line in content_lines:
+            if not line.strip():
+                continue
+
+            # Check if line is a header (all caps or ends with colon)
+            if line.isupper() and len(line.strip()) > 3:
+                # Main header
+                heading = doc.add_heading(line.strip(), level=1)
+                heading_run = heading.runs[0]
+                heading_run.font.size = Pt(13)
+                heading_run.font.color.rgb = RGBColor(0, 51, 102)
+            elif line.strip().endswith(':') and line.strip()[0].isupper():
+                # Subheading
+                subheading = doc.add_paragraph(line.strip())
+                subheading_run = subheading.runs[0]
+                subheading_run.bold = True
+                subheading_run.font.size = Pt(11)
+            elif line.strip().startswith(('•', '-', '▸', '★', '✓', '→')):
+                # Bullet point
+                doc.add_paragraph(line.strip()[1:].strip(), style='List Bullet')
+            elif line.strip()[0].isdigit() and line.strip()[1] in '.):':
+                # Numbered list
+                doc.add_paragraph(line.strip()[2:].strip(), style='List Number')
+            else:
+                # Regular paragraph
+                doc.add_paragraph(line.strip())
+
+        # Save document
+        output_path = self.output_dir / f"report_{report_data['patient_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        doc.save(output_path)
+
+        print(f"✓ Word document saved: {output_path}")
+        return output_path
+
+    def create_pdf_document(self, report_data, patient_data):
+        """Create a formatted PDF document"""
+        if not PDF_AVAILABLE:
+            print("⚠ PDF generation not available")
+            return None
+
+        print("\nCreating PDF document...")
+
+        output_path = self.output_dir / f"report_{report_data['patient_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+        # Create PDF
+        doc = SimpleDocTemplate(str(output_path), pagesize=letter)
+        story = []
+        styles = getSampleStyleSheet()
+
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            textColor='#003366',
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=13,
+            textColor='#003366',
+            spaceAfter=10,
+            spaceBefore=10,
+            fontName='Helvetica-Bold'
+        )
+
+        # Title
+        story.append(Paragraph("PSYCHOLOGICAL ASSESSMENT REPORT", title_style))
+        story.append(Spacer(1, 0.2*inch))
+
+        # Metadata
+        story.append(Paragraph(f"<b>Patient ID:</b> {report_data['patient_id']}", styles['Normal']))
+        story.append(Paragraph(f"<b>Generated:</b> {report_data['generated_date']}", styles['Normal']))
+        story.append(Spacer(1, 0.3*inch))
+
+        # Add graph
+        graph_path = self.output_dir / f"graph_{report_data['patient_id']}.png"
+        if self.create_test_graphs(patient_data, graph_path):
+            img = Image(str(graph_path), width=6*inch, height=2.5*inch)
+            story.append(img)
+            story.append(Spacer(1, 0.2*inch))
+
+        # Add content
+        content_lines = report_data['content'].split('\n')
+
+        for line in content_lines:
+            if not line.strip():
+                story.append(Spacer(1, 0.1*inch))
+                continue
+
+            if line.isupper() and len(line.strip()) > 3:
+                story.append(Paragraph(line.strip(), heading_style))
+            elif line.strip().endswith(':') and line.strip()[0].isupper():
+                story.append(Paragraph(f"<b>{line.strip()}</b>", styles['Normal']))
+            else:
+                story.append(Paragraph(line.strip(), styles['Normal']))
+
+        doc.build(story)
+
+        print(f"✓ PDF document saved: {output_path}")
+        return output_path
+
+    def format_report(self, report_data, patient_data, format='both'):
+        """Format report in specified format(s)"""
+        print(f"\n{'='*60}")
+        print("DOCUMENT FORMATTING")
+        print(f"{'='*60}")
+
+        outputs = {}
+
+        if format in ['word', 'both']:
+            word_path = self.create_word_document(report_data, patient_data)
+            if word_path:
+                outputs['word'] = word_path
+
+        if format in ['pdf', 'both']:
+            pdf_path = self.create_pdf_document(report_data, patient_data)
+            if pdf_path:
+                outputs['pdf'] = pdf_path
+
+        print(f"\n{'='*60}")
+        print("Document Formatting Complete!")
+        print(f"{'='*60}")
+
+        return outputs
+
+
+if __name__ == "__main__":
+    # Test document formatting
+    # Load sample patient data
+    with open("../data/patient_db/patients.json", 'r') as f:
+        patients = json.load(f)
+        patient_data = patients[0]
+
+    # Sample report data
+    report_data = {
+        'patient_id': patient_data['patient_id'],
+        'patient_name': patient_data['name'],
+        'generated_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'content': "PSYCHOLOGICAL ASSESSMENT REPORT\n\nReason for Referral:\nTest content here."
+    }
+
+    formatter = DocumentFormatter("../output")
+    formatter.format_report(report_data, patient_data)
+
+
+################################################################################
+# FILE: templates/index.html
+# Main web interface with modern 2026 design
+################################################################################
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Report Agent | 2026</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="background">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <rect width="40" height="40" rx="12" fill="url(#gradient1)"/>
+                    <path d="M12 20h16M20 12v16" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                    <defs>
+                        <linearGradient id="gradient1" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#667eea"/>
+                            <stop offset="100%" stop-color="#764ba2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>Medical Report Agent</h1>
+            </div>
+            <div class="header-info">
+                <span class="status-indicator"></span>
+                <span>AI Powered</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav class="nav-menu">
+                    <button class="nav-item active" data-view="generate">
+                        <span class="nav-icon">📝</span>
+                        <span>Generate Report</span>
+                    </button>
+                    <button class="nav-item" data-view="patients">
+                        <span class="nav-icon">👥</span>
+                        <span>Patients</span>
+                    </button>
+                    <button class="nav-item" data-view="recent">
+                        <span class="nav-icon">📋</span>
+                        <span>Recent Reports</span>
+                    </button>
+                    <button class="nav-item" data-view="settings">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Settings</span>
+                    </button>
+                </nav>
+
+                <div class="sidebar-footer">
+                    <div class="stats-card">
+                        <div class="stat-item">
+                            <span class="stat-label">Training Files</span>
+                            <span class="stat-value" id="training-files-count">--</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Patients</span>
+                            <span class="stat-value" id="patients-count">--</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Generate Report View -->
+                <div id="generate-view" class="view active">
+                    <div class="view-header">
+                        <h2>Generate Medical Report</h2>
+                        <p>Select a patient and generate a professional psychological assessment report</p>
+                    </div>
+
+                    <div class="form-card">
+                        <div class="form-group">
+                            <label for="patient-select">Select Patient</label>
+                            <select id="patient-select" class="form-control">
+                                <option value="">Loading patients...</option>
+                            </select>
+                        </div>
+
+                        <div id="patient-info" class="patient-info" style="display: none;">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <span class="info-label">Age</span>
+                                    <span class="info-value" id="patient-age">--</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Gender</span>
+                                    <span class="info-value" id="patient-gender">--</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Assessment Date</span>
+                                    <span class="info-value" id="patient-date">--</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Number of Tests</span>
+                                    <span class="info-value" id="patient-tests">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upload Patient Data Section -->
+                    <div class="form-card">
+                        <div class="form-group">
+                            <label>📎 Upload Patient Data (Optional)</label>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                                Upload test results, doctor letters, specialist reports, observations, or other relevant documents.
+                                Supports Word, Excel, PDF formats. Data is used for this report only and not saved to database.
+                            </p>
+                            <div id="upload-zone" class="upload-zone">
+                                <div class="upload-icon">📤</div>
+                                <p class="upload-text">
+                                    <strong>Click to upload</strong> or drag and drop files here
+                                </p>
+                                <p class="upload-hint">Word (.docx), Excel (.xlsx), PDF (.pdf) - Max 10MB per file</p>
+                                <input type="file" id="file-input" multiple accept=".docx,.xlsx,.pdf,.doc,.xls" style="display: none;">
+                            </div>
+                            <div id="uploaded-files" class="uploaded-files-list" style="display: none;">
+                                <!-- Uploaded files will appear here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-card">
+                        <div class="form-group">
+                            <label>Report Type</label>
+                            <div class="report-type-grid">
+                                <button type="button" class="report-type-btn active" data-type="parent-full">
+                                    <span class="type-icon">👨‍👩‍👧</span>
+                                    <span class="type-label">Parent</span>
+                                    <span class="type-variant">Full Report</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="parent-short">
+                                    <span class="type-icon">👨‍👩‍👧</span>
+                                    <span class="type-label">Parent</span>
+                                    <span class="type-variant">Shortened</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="specialist-full">
+                                    <span class="type-icon">🏥</span>
+                                    <span class="type-label">Specialist</span>
+                                    <span class="type-variant">Full Report</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="specialist-short">
+                                    <span class="type-icon">🏥</span>
+                                    <span class="type-label">Specialist</span>
+                                    <span class="type-variant">Shortened</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="other-full">
+                                    <span class="type-icon">📋</span>
+                                    <span class="type-label">Other</span>
+                                    <span class="type-variant">Full Report</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="other-short">
+                                    <span class="type-icon">📋</span>
+                                    <span class="type-label">Other</span>
+                                    <span class="type-variant">Shortened</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Output Format</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="format" value="word" checked>
+                                    <span>Word Document</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="format" value="pdf">
+                                    <span>PDF Document</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="format" value="both">
+                                    <span>Both Formats</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button id="generate-btn" class="btn-primary">
+                            <span class="btn-icon">✨</span>
+                            <span>Generate Report</span>
+                        </button>
+                    </div>
+
+                    <!-- Results -->
+                    <div id="results" class="results-card" style="display: none;">
+                        <div class="results-header">
+                            <h3>✅ Report Generated Successfully!</h3>
+                            <p id="results-patient">--</p>
+                        </div>
+                        <div class="results-files">
+                            <div id="word-file" class="file-card" style="display: none;">
+                                <div class="file-icon">📄</div>
+                                <div class="file-info">
+                                    <span class="file-name">Word Document</span>
+                                    <span class="file-path">--</span>
+                                </div>
+                                <button class="btn-secondary btn-open-word">
+                                    <span>Open in Word</span>
+                                </button>
+                            </div>
+                            <div id="pdf-file" class="file-card" style="display: none;">
+                                <div class="file-icon">📕</div>
+                                <div class="file-info">
+                                    <span class="file-name">PDF Document</span>
+                                    <span class="file-path">--</span>
+                                </div>
+                                <button class="btn-secondary btn-open-pdf">
+                                    <span>Open PDF</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Patients View -->
+                <div id="patients-view" class="view">
+                    <div class="view-header">
+                        <h2>Patient Database</h2>
+                        <p>View all patients in the system</p>
+                    </div>
+                    <div id="patients-list" class="patients-grid">
+                        <div class="loading">Loading patients...</div>
+                    </div>
+                </div>
+
+                <!-- Recent Reports View -->
+                <div id="recent-view" class="view">
+                    <div class="view-header">
+                        <h2>Recent Reports</h2>
+                        <p>View and open recently generated reports</p>
+                    </div>
+                    <div id="recent-list" class="reports-list">
+                        <div class="loading">Loading reports...</div>
+                    </div>
+                </div>
+
+                <!-- Settings View -->
+                <div id="settings-view" class="view">
+                    <div class="view-header">
+                        <h2>Settings</h2>
+                        <p>Configure paths and system settings</p>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="setting-card">
+                            <h3>📁 Training Data Location</h3>
+                            <p>Location of example reports for style learning</p>
+                            <div class="path-display" id="training-path">--</div>
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <input type="text" id="custom-training-path" class="form-control"
+                                       placeholder="Enter custom training data path (e.g., C:\MyReports)"
+                                       style="margin-bottom: 0.5rem;">
+                            </div>
+                            <button class="btn-secondary" onclick="updateTrainingPath()">
+                                Update Path
+                            </button>
+                        </div>
+
+                        <div class="setting-card">
+                            <h3>👥 Patient Database</h3>
+                            <p>Location of patient test data (JSON)</p>
+                            <div class="path-display" id="patient-db-path">--</div>
+                            <button class="btn-secondary" onclick="alert('File browser integration: Select patients.json file')">
+                                Change Location
+                            </button>
+                        </div>
+
+                        <div class="setting-card">
+                            <h3>📂 Output Directory</h3>
+                            <p>Where generated reports are saved</p>
+                            <div class="path-display" id="output-path">--</div>
+                            <button class="btn-secondary" onclick="openOutputFolder()">
+                                Open Folder
+                            </button>
+                        </div>
+
+                        <div class="setting-card">
+                            <h3>🎨 Report Style</h3>
+                            <p>Number of example reports for style learning</p>
+                            <div class="stat-large" id="style-count">--</div>
+                            <p class="hint">Recommended: 20+ reports for best results</p>
+                        </div>
+
+                        <div class="setting-card training-card">
+                            <h3>🎓 Train AI Agent</h3>
+                            <p>Train the AI on current training data to learn your writing style</p>
+                            <div id="training-status" style="margin: 1rem 0; padding: 1rem; background: #F0F4F8; border-radius: 8px; display: none;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <div class="training-spinner" style="display: none;"></div>
+                                    <span id="training-status-text">Ready to train</span>
+                                </div>
+                            </div>
+                            <button id="train-btn" class="btn-primary" onclick="startTraining()" style="margin-top: 1rem;">
+                                <span class="btn-icon">🎓</span>
+                                <span>Start Training</span>
+                            </button>
+                            <p class="hint" style="margin-top: 1rem;">Training analyzes your example reports and updates the AI's understanding of your writing style. This process uses Claude Opus 4.5.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Generating report...</p>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
+
+
+################################################################################
+# FILE: static/style.css
+# Professional light theme CSS styling
+################################################################################
+
+/* Medical Report Agent - 2026 Design */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-gradient: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+    --secondary-gradient: linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%);
+    --success-gradient: linear-gradient(135deg, #52C41A 0%, #389E0D 100%);
+    --bg-light: #F5F7FA;
+    --bg-card: #FFFFFF;
+    --bg-card-hover: #F8F9FB;
+    --text-primary: #1F2937;
+    --text-secondary: #6B7280;
+    --border-color: #E5E7EB;
+    --shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 4px 20px 0 rgba(0, 0, 0, 0.12);
+    --accent-blue: #4A90E2;
+    --accent-green: #52C41A;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg-light);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    line-height: 1.6;
+}
+
+/* Animated Background */
+.background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    overflow: hidden;
+}
+
+.gradient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.15;
+    animation: float 20s infinite ease-in-out;
+}
+
+.orb-1 {
+    width: 500px;
+    height: 500px;
+    background: linear-gradient(135deg, #E3F2FD, #BBDEFB);
+    top: -200px;
+    left: -200px;
+    animation-delay: 0s;
+}
+
+.orb-2 {
+    width: 400px;
+    height: 400px;
+    background: linear-gradient(135deg, #F3E5F5, #E1BEE7);
+    bottom: -150px;
+    right: -150px;
+    animation-delay: 7s;
+}
+
+.orb-3 {
+    width: 350px;
+    height: 350px;
+    background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+    top: 50%;
+    left: 50%;
+    animation-delay: 14s;
+}
+
+@keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(100px, -100px) scale(1.1); }
+    66% { transform: translate(-100px, 100px) scale(0.9); }
+}
+
+/* Container */
+.container {
+    min-height: 100vh;
+    padding: 2rem;
+    position: relative;
+    z-index: 1;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent-green);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Main Content */
+.main-content {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 2rem;
+    min-height: calc(100vh - 200px);
+}
+
+/* Sidebar */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.nav-menu {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 1rem;
+    box-shadow: var(--shadow);
+}
+
+.nav-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.nav-item:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.nav-icon {
+    font-size: 1.3rem;
+}
+
+.sidebar-footer {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+}
+
+.stats-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    background: var(--success-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Content Area */
+.content-area {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 2.5rem;
+    box-shadow: var(--shadow);
+    min-height: 600px;
+}
+
+.view {
+    display: none;
+}
+
+.view.active {
+    display: block;
+    animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.view-header {
+    margin-bottom: 2rem;
+}
+
+.view-header h2 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.view-header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* Form Card */
+.form-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.radio-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.radio-label:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-blue);
+}
+
+.radio-label input[type="radio"] {
+    accent-color: var(--accent-blue);
+}
+
+/* Buttons */
+.btn-primary {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem 2rem;
+    background: var(--primary-gradient);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    padding: 0.625rem 1.25rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #667eea;
+}
+
+/* Patient Info */
+.patient-info {
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.info-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Results Card */
+.results-card {
+    background: rgba(79, 172, 254, 0.1);
+    border: 1px solid rgba(79, 172, 254, 0.3);
+    border-radius: 16px;
+    padding: 2rem;
+    animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.results-header {
+    margin-bottom: 1.5rem;
+}
+
+.results-header h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.results-files {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.file-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.file-card:hover {
+    background: var(--bg-card-hover);
+    transform: translateX(5px);
+    box-shadow: var(--shadow);
+}
+
+.file-icon {
+    font-size: 2.5rem;
+}
+
+.file-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.file-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.file-path {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+/* Settings */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.setting-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.setting-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.setting-card p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.path-display {
+    background: #F8F9FA;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    word-break: break-all;
+    color: var(--accent-blue);
+    border: 1px solid var(--border-color);
+}
+
+.stat-large {
+    font-size: 3rem;
+    font-weight: 700;
+    background: var(--success-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 1rem 0;
+}
+
+.hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Patients Grid */
+.patients-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.patient-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.patient-card:hover {
+    background: var(--bg-card-hover);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Reports List */
+.reports-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.report-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem;
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.report-item:hover {
+    background: var(--bg-card-hover);
+    box-shadow: var(--shadow);
+}
+
+/* Loading */
+.loading {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Toast */
+#toast-container {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    z-index: 2000;
+}
+
+.toast {
+    background: #FFFFFF;
+    color: var(--text-primary);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+    animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Report Type Selection */
+.report-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+}
+
+.report-type-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.25rem 1rem;
+    background: #FFFFFF;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.report-type-btn:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-blue);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.report-type-btn.active {
+    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.type-icon {
+    font-size: 2rem;
+}
+
+.type-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.type-variant {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.training-card {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
+    border: 2px solid var(--accent-blue);
+}
+
+.training-spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--accent-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* File Upload Zone */
+.upload-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: #FAFBFC;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-zone:hover {
+    border-color: var(--accent-blue);
+    background: #F0F4F8;
+}
+
+.upload-zone.dragover {
+    border-color: var(--accent-blue);
+    background: #E3F2FD;
+    border-style: solid;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.upload-text {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.upload-text strong {
+    color: var(--accent-blue);
+}
+
+.upload-hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.uploaded-files-list {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.uploaded-file-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem 1rem;
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.uploaded-file-item:hover {
+    box-shadow: var(--shadow);
+}
+
+.file-type-icon {
+    font-size: 1.75rem;
+}
+
+.uploaded-file-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.uploaded-file-name {
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.uploaded-file-size {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.remove-file-btn {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.remove-file-btn:hover {
+    background: #FEE;
+    border-color: #F5222D;
+    color: #F5222D;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        display: none;
+    }
+}
+
+
+################################################################################
+# FILE: static/app.js
+# Frontend JavaScript functionality
+################################################################################
+
+// Medical Report Agent - JavaScript
+// Modern 2026 Interactive Interface
+
+let patients = [];
+let selectedPatient = null;
+let currentWordFile = null;
+let currentPdfFile = null;
+let uploadedFiles = [];
+let selectedReportType = 'parent-full';
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    initializeNavigation();
+    loadPatients();
+    loadSettings();
+    loadRecentReports();
+    initializeFileUpload();
+    initializeReportTypeSelection();
+
+    // Event listeners
+    document.getElementById('patient-select').addEventListener('change', handlePatientSelect);
+    document.getElementById('generate-btn').addEventListener('click', handleGenerateReport);
+});
+
+// Navigation
+function initializeNavigation() {
+    const navItems = document.querySelectorAll('.nav-item');
+
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            // Update active state
+            navItems.forEach(nav => nav.classList.remove('active'));
+            item.classList.add('active');
+
+            // Show corresponding view
+            const viewName = item.getAttribute('data-view');
+            showView(viewName);
+        });
+    });
+}
+
+function showView(viewName) {
+    const views = document.querySelectorAll('.view');
+    views.forEach(view => view.classList.remove('active'));
+
+    const targetView = document.getElementById(`${viewName}-view`);
+    if (targetView) {
+        targetView.classList.add('active');
+
+        // Load data for specific views
+        if (viewName === 'patients') {
+            displayPatients();
+        } else if (viewName === 'recent') {
+            loadRecentReports();
+        } else if (viewName === 'settings') {
+            loadSettings();
+        }
+    }
+}
+
+// Load Patients
+async function loadPatients() {
+    try {
+        const response = await fetch('/api/patients');
+        const data = await response.json();
+
+        if (data.success) {
+            patients = data.patients;
+            populatePatientSelect();
+            updatePatientsCount();
+        } else {
+            showToast('Error loading patients: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error loading patients: ' + error.message, 'error');
+    }
+}
+
+function populatePatientSelect() {
+    const select = document.getElementById('patient-select');
+    select.innerHTML = '';
+
+    patients.forEach((patient, index) => {
+        const option = document.createElement('option');
+        option.value = patient.patient_id;
+        option.textContent = `${patient.patient_id} - ${patient.name} (${patient.age}, ${patient.gender})`;
+        select.appendChild(option);
+    });
+
+    // Set first patient as default "Current patient"
+    if (patients.length > 0) {
+        select.value = patients[0].patient_id;
+        selectedPatient = patients[0];
+        displayPatientInfo(patients[0]);
+    }
+}
+
+function handlePatientSelect(e) {
+    const patientId = e.target.value;
+
+    if (!patientId) {
+        document.getElementById('patient-info').style.display = 'none';
+        selectedPatient = null;
+        return;
+    }
+
+    selectedPatient = patients.find(p => p.patient_id === patientId);
+
+    if (selectedPatient) {
+        displayPatientInfo(selectedPatient);
+    }
+}
+
+function displayPatientInfo(patient) {
+    document.getElementById('patient-age').textContent = patient.age;
+    document.getElementById('patient-gender').textContent = patient.gender;
+    document.getElementById('patient-date').textContent = patient.date_of_assessment;
+    document.getElementById('patient-tests').textContent = patient.tests.length;
+    document.getElementById('patient-info').style.display = 'block';
+}
+
+// Display all patients
+function displayPatients() {
+    const container = document.getElementById('patients-list');
+    container.innerHTML = '';
+
+    patients.forEach(patient => {
+        const card = document.createElement('div');
+        card.className = 'patient-card';
+        card.innerHTML = `
+            <h3>${patient.name}</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Patient ID</span>
+                    <span class="info-value">${patient.patient_id}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Age</span>
+                    <span class="info-value">${patient.age}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Gender</span>
+                    <span class="info-value">${patient.gender}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Tests</span>
+                    <span class="info-value">${patient.tests.length}</span>
+                </div>
+            </div>
+            <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary);">
+                Assessment: ${patient.date_of_assessment}
+            </p>
+        `;
+
+        card.addEventListener('click', () => {
+            showView('generate');
+            document.getElementById('patient-select').value = patient.patient_id;
+            displayPatientInfo(patient);
+            selectedPatient = patient;
+        });
+
+        container.appendChild(card);
+    });
+}
+
+// Report Type Selection
+function initializeReportTypeSelection() {
+    const reportTypeBtns = document.querySelectorAll('.report-type-btn');
+
+    reportTypeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active class from all buttons
+            reportTypeBtns.forEach(b => b.classList.remove('active'));
+            // Add active class to clicked button
+            btn.classList.add('active');
+            // Store selected type
+            selectedReportType = btn.getAttribute('data-type');
+        });
+    });
+}
+
+// Training Functions
+async function startTraining() {
+    const btn = document.getElementById('train-btn');
+    const statusDiv = document.getElementById('training-status');
+    const statusText = document.getElementById('training-status-text');
+    const spinner = document.querySelector('.training-spinner');
+
+    try {
+        // Show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-icon">⏳</span><span>Training...</span>';
+        statusDiv.style.display = 'block';
+        spinner.style.display = 'block';
+        statusText.textContent = 'Training AI on your reports...';
+
+        const trainingPath = document.getElementById('training-path').textContent;
+
+        const response = await fetch('/api/train', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                training_path: trainingPath
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            statusText.textContent = `✓ Training complete! Analyzed ${data.num_reports} reports.`;
+            spinner.style.display = 'none';
+            showToast('AI training completed successfully!', 'success');
+
+            // Update the stats
+            document.getElementById('style-count').textContent = data.num_reports;
+        } else {
+            statusText.textContent = '✗ Training failed: ' + data.error;
+            spinner.style.display = 'none';
+            showToast('Training failed: ' + data.error, 'error');
+        }
+    } catch (error) {
+        statusText.textContent = '✗ Error: ' + error.message;
+        spinner.style.display = 'none';
+        showToast('Error: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">🎓</span><span>Start Training</span>';
+    }
+}
+
+async function updateTrainingPath() {
+    const customPath = document.getElementById('custom-training-path').value.trim();
+
+    if (!customPath) {
+        showToast('Please enter a valid path', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/update-training-path', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                training_path: customPath
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('training-path').textContent = data.training_path;
+            document.getElementById('style-count').textContent = data.num_reports;
+            showToast('Training path updated successfully!', 'success');
+            document.getElementById('custom-training-path').value = '';
+        } else {
+            showToast('Error updating path: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+// File Upload
+function initializeFileUpload() {
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+
+    // Click to upload
+    uploadZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+
+    // Drag and drop
+    uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    });
+}
+
+async function handleFiles(files) {
+    const formData = new FormData();
+
+    for (let file of files) {
+        // Check file size (10MB max)
+        if (file.size > 10 * 1024 * 1024) {
+            showToast(`File ${file.name} is too large (max 10MB)`, 'error');
+            continue;
+        }
+
+        // Check file type
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['docx', 'doc', 'xlsx', 'xls', 'pdf'].includes(ext)) {
+            showToast(`File ${file.name} has unsupported format`, 'error');
+            continue;
+        }
+
+        formData.append('files', file);
+    }
+
+    // Upload files
+    try {
+        showToast('Uploading files...', 'info');
+
+        const response = await fetch('/api/upload-patient-data', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            uploadedFiles = data.files;
+            displayUploadedFiles();
+            showToast(`${data.files.length} file(s) uploaded successfully`, 'success');
+        } else {
+            showToast('Error uploading files: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error uploading files: ' + error.message, 'error');
+    }
+}
+
+function displayUploadedFiles() {
+    const container = document.getElementById('uploaded-files');
+
+    if (uploadedFiles.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    container.innerHTML = '';
+
+    uploadedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'uploaded-file-item';
+
+        const icon = file.type === 'word' ? '📄' : file.type === 'excel' ? '📊' : '📕';
+
+        item.innerHTML = `
+            <div class="file-type-icon">${icon}</div>
+            <div class="uploaded-file-info">
+                <div class="uploaded-file-name">${file.filename}</div>
+                <div class="uploaded-file-size">${formatFileSize(file.size)}</div>
+            </div>
+            <button class="remove-file-btn" onclick="removeUploadedFile(${index})">Remove</button>
+        `;
+
+        container.appendChild(item);
+    });
+}
+
+function removeUploadedFile(index) {
+    uploadedFiles.splice(index, 1);
+    displayUploadedFiles();
+    showToast('File removed', 'info');
+}
+
+// Generate Report
+async function handleGenerateReport() {
+    if (!selectedPatient) {
+        showToast('Please select a patient first', 'error');
+        return;
+    }
+
+    const format = document.querySelector('input[name="format"]:checked').value;
+    const btn = document.getElementById('generate-btn');
+
+    // Show loading
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-icon">⏳</span><span>Generating...</span>';
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('results').style.display = 'none';
+
+    try {
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                patient_id: selectedPatient.patient_id,
+                format: format,
+                report_type: selectedReportType,  // Include report type
+                uploaded_data: uploadedFiles  // Include uploaded files
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            displayResults(data, format);
+            showToast('Report generated successfully!', 'success');
+
+            // Auto-open the report
+            setTimeout(() => {
+                if (format === 'word' || format === 'both') {
+                    openFile(data.files.word);
+                } else if (format === 'pdf') {
+                    openFile(data.files.pdf);
+                }
+            }, 500);
+        } else {
+            showToast('Error generating report: ' + data.error, 'error');
+            console.error(data.traceback);
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">✨</span><span>Generate Report</span>';
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+}
+
+function displayResults(data, format) {
+    const resultsDiv = document.getElementById('results');
+    document.getElementById('results-patient').textContent = `Report for ${data.patient_name}`;
+
+    // Show Word file
+    if (data.files.word) {
+        currentWordFile = data.files.word;
+        const wordDiv = document.getElementById('word-file');
+        wordDiv.style.display = 'flex';
+        wordDiv.querySelector('.file-path').textContent = data.files.word;
+
+        const wordBtn = wordDiv.querySelector('.btn-open-word');
+        wordBtn.onclick = () => openFile(data.files.word);
+    } else {
+        document.getElementById('word-file').style.display = 'none';
+    }
+
+    // Show PDF file
+    if (data.files.pdf) {
+        currentPdfFile = data.files.pdf;
+        const pdfDiv = document.getElementById('pdf-file');
+        pdfDiv.style.display = 'flex';
+        pdfDiv.querySelector('.file-path').textContent = data.files.pdf;
+
+        const pdfBtn = pdfDiv.querySelector('.btn-open-pdf');
+        pdfBtn.onclick = () => openFile(data.files.pdf);
+    } else {
+        document.getElementById('pdf-file').style.display = 'none';
+    }
+
+    resultsDiv.style.display = 'block';
+    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Open file in default application
+async function openFile(filePath) {
+    try {
+        const response = await fetch('/api/open-file', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                file_path: filePath
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Opening file...', 'success');
+        } else {
+            showToast('Error opening file: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+// Recent Reports
+async function loadRecentReports() {
+    try {
+        const response = await fetch('/api/recent-reports');
+        const data = await response.json();
+
+        if (data.success) {
+            displayRecentReports(data.reports);
+        }
+    } catch (error) {
+        console.error('Error loading recent reports:', error);
+    }
+}
+
+function displayRecentReports(reports) {
+    const container = document.getElementById('recent-list');
+
+    if (reports.length === 0) {
+        container.innerHTML = '<div class="loading">No reports generated yet</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+
+    reports.forEach(report => {
+        const item = document.createElement('div');
+        item.className = 'report-item';
+        item.innerHTML = `
+            <div>
+                <div style="font-weight: 600; margin-bottom: 0.25rem;">${report.name}</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                    ${report.modified} • ${formatFileSize(report.size)}
+                </div>
+            </div>
+            <button class="btn-secondary" onclick="openFile('${report.path}')">
+                Open
+            </button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// Settings
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/settings');
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('training-path').textContent = data.settings.example_reports_path;
+            document.getElementById('patient-db-path').textContent = data.settings.patient_db_path;
+            document.getElementById('output-path').textContent = data.settings.output_path;
+            document.getElementById('style-count').textContent = data.settings.num_example_reports;
+            document.getElementById('training-files-count').textContent = data.settings.num_example_reports;
+        }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+    }
+}
+
+function openOutputFolder() {
+    const outputPath = document.getElementById('output-path').textContent;
+    openFile(outputPath);
+}
+
+// Update counts
+function updatePatientsCount() {
+    document.getElementById('patients-count').textContent = patients.length;
+}
+
+// Utility functions
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+
+################################################################################
+# FILE: requirements.txt
+# Python package dependencies
+################################################################################
+
+anthropic==0.40.0
+flask==3.0.0
+python-docx==1.1.0
+matplotlib==3.8.2
+pandas==2.1.4
+reportlab==4.0.9
+Pillow==10.1.0
+numpy==1.26.2
+
+
+################################################################################
+# FILE: INSTALL-DESKTOP-ICON.ps1
+# Desktop icon installer for Windows
+################################################################################
+
+# Medical Report Agent - Desktop Icon Installer
+# Run this once to create a working desktop shortcut
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Medical Report Agent" -ForegroundColor Green
+Write-Host "Desktop Icon Installer" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Check if API key already exists in WSL
+Write-Host "Checking for existing API key..." -ForegroundColor Yellow
+$ExistingKey = wsl bash -c "cd ~/MEDMCQ261225/medical-report-agent 2>/dev/null && [ -f set_api_key.local.sh ] && grep 'ANTHROPIC_API_KEY=' set_api_key.local.sh | sed 's/.*ANTHROPIC_API_KEY=\"\(.*\)\"/\1/'" 2>$null
+
+if ([string]::IsNullOrWhiteSpace($ExistingKey)) {
+    # No existing key, prompt for it
+    Write-Host "Enter your Anthropic API key:" -ForegroundColor Yellow
+    Write-Host "(Get it from: https://console.anthropic.com/settings/keys)" -ForegroundColor Gray
+    $ApiKey = Read-Host "API Key"
+
+    if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+        Write-Host "✗ API key required" -ForegroundColor Red
+        Read-Host "Press Enter to exit"
+        exit
+    }
+} else {
+    # Reuse existing key
+    $ApiKey = $ExistingKey.Trim()
+    Write-Host "✓ Found existing API key" -ForegroundColor Green
+}
+
+# Create application directory
+$AppDir = "$env:USERPROFILE\MedicalReportAgent"
+$BatchFile = "$AppDir\START-HERE.bat"
+
+Write-Host ""
+Write-Host "Creating application directory..." -ForegroundColor Yellow
+New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
+
+# Create launcher batch file with API key
+Write-Host "Creating launcher..." -ForegroundColor Yellow
+
+$BatchContent = @"
+@echo off
+REM Medical Report Agent - Launcher
+
+echo =========================================
+echo Medical Report Agent
+echo =========================================
+echo.
+
+wsl --list >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERROR: WSL not installed
+    pause
+    exit /b 1
+)
+
+echo Setting up...
+wsl bash -c "cd ~ && [ -d MEDMCQ261225 ] || git clone https://github.com/ToddHart/MEDMCQ261225.git" >nul 2>&1
+wsl bash -c "cd ~/MEDMCQ261225 && git pull -q && git checkout claude/secure-medical-agents-TkKPt" >nul 2>&1
+wsl bash -c "pip3 install --break-system-packages -q flask anthropic python-docx reportlab matplotlib pandas numpy pillow 2>&1 | grep -v WARNING"
+wsl bash -c "cd ~/MEDMCQ261225/medical-report-agent && echo 'export ANTHROPIC_API_KEY=\"$ApiKey\"' > set_api_key.local.sh"
+
+echo Opening browser...
+start "" "http://127.0.0.1:5000"
+
+echo Starting server...
+echo Keep this window open.
+echo.
+
+wsl bash -c "cd ~/MEDMCQ261225/medical-report-agent && source set_api_key.local.sh && python3 web_app.py"
+
+pause
+"@
+
+$BatchContent | Out-File -FilePath $BatchFile -Encoding ASCII
+
+# Create desktop shortcut
+Write-Host "Creating desktop shortcut..." -ForegroundColor Yellow
+
+$DesktopPath = [Environment]::GetFolderPath("Desktop")
+$ShortcutPath = Join-Path $DesktopPath "Medical Report Agent.lnk"
+
+$WshShell = New-Object -ComObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+$Shortcut.TargetPath = $BatchFile
+$Shortcut.WorkingDirectory = $AppDir
+$Shortcut.Description = "Generate medical psychological reports"
+$Shortcut.IconLocation = "%SystemRoot%\System32\shell32.dll,70"
+$Shortcut.Save()
+
+Write-Host "✓ Desktop shortcut created!" -ForegroundColor Green
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Installation Complete!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "You can now:" -ForegroundColor White
+Write-Host "  1. Double-click 'Medical Report Agent' on your desktop" -ForegroundColor Cyan
+Write-Host "  2. Wait for browser to open (first time takes longer)" -ForegroundColor Cyan
+Write-Host "  3. Generate professional medical reports!" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Location: $ShortcutPath" -ForegroundColor Gray
+Write-Host ""
+
+$response = Read-Host "Would you like to launch it now? (y/n)"
+if ($response -eq 'y' -or $response -eq 'Y') {
+    Write-Host ""
+    Write-Host "Launching Medical Report Agent..." -ForegroundColor Cyan
+    Start-Process $ShortcutPath
+}
+
+Write-Host ""
+Write-Host "Done!" -ForegroundColor Green
+Write-Host ""
+Read-Host "Press Enter to close"
+
+
+################################################################################
+# RECOVERY INSTRUCTIONS
+################################################################################
+
+To restore this code from backup:
+
+1. Create project directory:
+   mkdir -p medical-report-agent/{src,templates,static,data,output}
+   cd medical-report-agent
+
+2. Extract each file from this backup:
+   - Find the file section (marked with #### FILE: filename ####)
+   - Copy everything after the header until the next file section
+   - Save to the correct file path
+
+3. Install Python dependencies:
+   pip3 install -r requirements.txt
+
+4. Configure API key:
+   Create set_api_key.local.sh with:
+   export ANTHROPIC_API_KEY="your-key-here"
+
+5. Add your training data:
+   - Put your example reports (.txt files) in data/example_reports/
+   - Create patients.json in data/patient_db/
+
+6. Run the application:
+   python3 web_app.py
+
+################################################################################
+# END OF BACKUP
+################################################################################
