@@ -111,7 +111,31 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
 
+                    <!-- Upload Patient Data Section -->
+                    <div class="form-card">
+                        <div class="form-group">
+                            <label>📎 Upload Patient Data (Optional)</label>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                                Upload test results, doctor letters, specialist reports, observations, or other relevant documents.
+                                Supports Word, Excel, PDF formats. Data is used for this report only and not saved to database.
+                            </p>
+                            <div id="upload-zone" class="upload-zone">
+                                <div class="upload-icon">📤</div>
+                                <p class="upload-text">
+                                    <strong>Click to upload</strong> or drag and drop files here
+                                </p>
+                                <p class="upload-hint">Word (.docx), Excel (.xlsx), PDF (.pdf) - Max 10MB per file</p>
+                                <input type="file" id="file-input" multiple accept=".docx,.xlsx,.pdf,.doc,.xls" style="display: none;">
+                            </div>
+                            <div id="uploaded-files" class="uploaded-files-list" style="display: none;">
+                                <!-- Uploaded files will appear here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-card">
                         <div class="form-group">
                             <label>Output Format</label>
                             <div class="radio-group">

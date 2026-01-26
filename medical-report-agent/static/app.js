@@ -5,6 +5,7 @@ let patients = [];
 let selectedPatient = null;
 let currentWordFile = null;
 let currentPdfFile = null;
+let uploadedFiles = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadPatients();
     loadSettings();
     loadRecentReports();
+    initializeFileUpload();
 
     // Event listeners
     document.getElementById('patient-select').addEventListener('change', handlePatientSelect);
@@ -152,6 +154,117 @@ function displayPatients() {
     });
 }
 
+// File Upload
+function initializeFileUpload() {
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+
+    // Click to upload
+    uploadZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+
+    // Drag and drop
+    uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    });
+}
+
+async function handleFiles(files) {
+    const formData = new FormData();
+
+    for (let file of files) {
+        // Check file size (10MB max)
+        if (file.size > 10 * 1024 * 1024) {
+            showToast(`File ${file.name} is too large (max 10MB)`, 'error');
+            continue;
+        }
+
+        // Check file type
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['docx', 'doc', 'xlsx', 'xls', 'pdf'].includes(ext)) {
+            showToast(`File ${file.name} has unsupported format`, 'error');
+            continue;
+        }
+
+        formData.append('files', file);
+    }
+
+    // Upload files
+    try {
+        showToast('Uploading files...', 'info');
+
+        const response = await fetch('/api/upload-patient-data', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            uploadedFiles = data.files;
+            displayUploadedFiles();
+            showToast(`${data.files.length} file(s) uploaded successfully`, 'success');
+        } else {
+            showToast('Error uploading files: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error uploading files: ' + error.message, 'error');
+    }
+}
+
+function displayUploadedFiles() {
+    const container = document.getElementById('uploaded-files');
+
+    if (uploadedFiles.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    container.innerHTML = '';
+
+    uploadedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'uploaded-file-item';
+
+        const icon = file.type === 'word' ? '📄' : file.type === 'excel' ? '📊' : '📕';
+
+        item.innerHTML = `
+            <div class="file-type-icon">${icon}</div>
+            <div class="uploaded-file-info">
+                <div class="uploaded-file-name">${file.filename}</div>
+                <div class="uploaded-file-size">${formatFileSize(file.size)}</div>
+            </div>
+            <button class="remove-file-btn" onclick="removeUploadedFile(${index})">Remove</button>
+        `;
+
+        container.appendChild(item);
+    });
+}
+
+function removeUploadedFile(index) {
+    uploadedFiles.splice(index, 1);
+    displayUploadedFiles();
+    showToast('File removed', 'info');
+}
+
 // Generate Report
 async function handleGenerateReport() {
     if (!selectedPatient) {
@@ -176,7 +289,8 @@ async function handleGenerateReport() {
             },
             body: JSON.stringify({
                 patient_id: selectedPatient.patient_id,
-                format: format
+                format: format,
+                uploaded_data: uploadedFiles  // Include uploaded files
             })
         });
 

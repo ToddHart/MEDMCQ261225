@@ -12,6 +12,8 @@ from pathlib import Path
 from datetime import datetime
 import webbrowser
 import threading
+import tempfile
+from werkzeug.utils import secure_filename
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -82,6 +84,7 @@ def generate_report():
         data = request.json
         patient_id = data.get('patient_id')
         output_format = data.get('format', 'both')
+        uploaded_data = data.get('uploaded_data', [])  # Get uploaded file content
 
         if not patient_id:
             return jsonify({'success': False, 'error': 'Patient ID required'})
@@ -95,11 +98,22 @@ def generate_report():
         if not patient_data:
             return jsonify({'success': False, 'error': f'Patient {patient_id} not found'})
 
+        # Add uploaded data to patient data if provided
+        if uploaded_data:
+            additional_info = "\n\n=== Additional Patient Data ===\n"
+            for file_info in uploaded_data:
+                additional_info += f"\n--- {file_info['filename']} ---\n"
+                additional_info += file_info['content'] + "\n"
+
+            # Store it temporarily in patient data
+            patient_data['additional_documents'] = additional_info
+
         # Generate report
         report_data = report_generator.generate_report(
             patient_id=patient_id,
             patient_db_path=str(patient_db_path),
-            example_reports_dir=str(project_root / "data" / "example_reports")
+            example_reports_dir=str(project_root / "data" / "example_reports"),
+            additional_context=patient_data.get('additional_documents', '')
         )
 
         # Format documents
@@ -187,6 +201,108 @@ def get_recent_reports():
         return jsonify({'success': True, 'reports': reports[:10]})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/upload-patient-data', methods=['POST'])
+def upload_patient_data():
+    """Handle patient data file uploads"""
+    try:
+        if 'files' not in request.files:
+            return jsonify({'success': False, 'error': 'No files provided'})
+
+        files = request.files.getlist('files')
+        uploaded_files = []
+
+        # Create temp directory for this session
+        temp_dir = tempfile.mkdtemp(prefix='patient_data_')
+
+        for file in files:
+            if file.filename == '':
+                continue
+
+            # Secure the filename
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(temp_dir, filename)
+
+            # Save the file
+            file.save(file_path)
+
+            # Extract text content based on file type
+            content = extract_file_content(file_path, filename)
+
+            uploaded_files.append({
+                'filename': filename,
+                'path': file_path,
+                'size': os.path.getsize(file_path),
+                'content': content,
+                'type': get_file_type(filename)
+            })
+
+        return jsonify({
+            'success': True,
+            'files': uploaded_files,
+            'temp_dir': temp_dir
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
+
+def get_file_type(filename):
+    """Get file type from extension"""
+    ext = filename.lower().split('.')[-1]
+    if ext in ['doc', 'docx']:
+        return 'word'
+    elif ext in ['xls', 'xlsx']:
+        return 'excel'
+    elif ext == 'pdf':
+        return 'pdf'
+    else:
+        return 'unknown'
+
+def extract_file_content(file_path, filename):
+    """Extract text content from uploaded files"""
+    try:
+        ext = filename.lower().split('.')[-1]
+
+        if ext in ['docx', 'doc']:
+            # Extract from Word document
+            try:
+                from docx import Document
+                doc = Document(file_path)
+                paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+                return '\n'.join(paragraphs)
+            except Exception as e:
+                return f"[Word document: {filename} - Content extraction requires python-docx]"
+
+        elif ext in ['xlsx', 'xls']:
+            # Extract from Excel
+            try:
+                import pandas as pd
+                df = pd.read_excel(file_path)
+                return df.to_string()
+            except Exception as e:
+                return f"[Excel document: {filename} - Content extraction requires pandas and openpyxl]"
+
+        elif ext == 'pdf':
+            # Extract from PDF
+            try:
+                import PyPDF2
+                with open(file_path, 'rb') as f:
+                    pdf_reader = PyPDF2.PdfReader(f)
+                    text = []
+                    for page in pdf_reader.pages:
+                        text.append(page.extract_text())
+                    return '\n'.join(text)
+            except Exception as e:
+                return f"[PDF document: {filename} - Content extraction requires PyPDF2]"
+
+        else:
+            # Try to read as plain text
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                return f.read()
+
+    except Exception as e:
+        return f"[Error reading {filename}: {str(e)}]"
 
 @app.route('/static/<path:path>')
 def serve_static(path):
