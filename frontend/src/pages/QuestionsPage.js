@@ -690,8 +690,8 @@ const QuestionsPage = () => {
         </div>
       </div>
       
-      {/* Session Stats - moved up, directly after filters with minimal gap */}
-      <div className="mt-2 pt-2 border-t-2 border-gray-200">
+      {/* Session Stats - positioned higher with reduced spacing */}
+      <div className="mt-1 pt-1 border-t-2 border-gray-200">
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-3">
           <h4 className="text-xs font-bold text-gray-700 mb-2">SESSION STATS</h4>
           <div className="grid grid-cols-3 gap-2 text-center">
@@ -900,21 +900,25 @@ const QuestionsPage = () => {
           {/* Main Content - Question Card */}
           <div className="lg:col-span-4 w-full overflow-x-hidden">
             <div className="bg-white rounded-xl shadow-lg border-2 border-gray-100 w-full overflow-hidden">
-              {/* Question Header - ALWAYS STICKY, with uniform badge sizes */}
-              <div 
+              {/* Question Header - Double height for better visibility */}
+              <div
                 ref={questionHeaderRef}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-2 sm:px-3 py-2 sticky top-0 z-30"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4 py-4 sm:py-5 sticky top-16 z-30"
               >
-                {/* Single line for all info with uniform colored badges */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap flex-1 min-w-0">
-                    <span className="text-xs sm:text-sm font-bold bg-white/20 px-2 py-0.5 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
-                    <span className="text-xs font-semibold capitalize bg-green-400 text-green-900 px-2 py-0.5 rounded whitespace-nowrap">{question.category}</span>
-                    <span className="text-xs font-semibold bg-blue-400 text-blue-900 px-2 py-0.5 rounded whitespace-nowrap">Year {question.year}</span>
-                    <span className="text-xs font-semibold bg-purple-400 text-purple-900 px-2 py-0.5 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
+                {/* Two rows layout for better spacing */}
+                <div className="flex flex-col gap-2 sm:gap-3">
+                  {/* Top row: Question number and timer */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-base sm:text-lg font-bold bg-white/20 px-3 py-1.5 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
+                    <div className="text-base sm:text-lg font-bold bg-white/20 px-3 py-1.5 rounded whitespace-nowrap">
+                      {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
+                    </div>
                   </div>
-                  <div className="text-xs sm:text-sm font-bold bg-white/20 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
-                    {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
+                  {/* Bottom row: Category, Year, Difficulty */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm sm:text-base font-semibold capitalize bg-green-400 text-green-900 px-3 py-1 rounded whitespace-nowrap">{question.category}</span>
+                    <span className="text-sm sm:text-base font-semibold bg-blue-400 text-blue-900 px-3 py-1 rounded whitespace-nowrap">Year {question.year}</span>
+                    <span className="text-sm sm:text-base font-semibold bg-purple-400 text-purple-900 px-3 py-1 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
                   </div>
                 </div>
               </div>
