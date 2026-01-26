@@ -10,6 +10,7 @@ All code fixes have been completed and pushed to GitHub branch: **`claude/all-fi
 3. ✅ **Home Page Cards** - Reduced height so bottom row headings are visible
 4. ✅ **Mobile View** - Horizontal scroll locked
 5. ✅ **Email System** - Dual email setup (noreply@ and support@)
+6. ✅ **File Import** - Multi-format support (Word, PDF, Excel, CSV) with drag-and-drop
 
 ---
 
@@ -144,6 +145,20 @@ After deployment, check:
 
 - [ ] **Mobile View**: No horizontal scrolling, everything fits in viewport
 
+- [ ] **File Import**: Can upload Word (.docx, .doc), PDF (.pdf), Excel (.xlsx, .xls), and CSV files
+
+---
+
+## Backend Dependencies (Required for File Import)
+
+If you're using the manual update method (Option 2), ensure these Python packages are installed in Emergent:
+
+```bash
+pip install python-docx pdfplumber
+```
+
+These packages are needed for parsing Word documents and PDF files. If Emergent auto-deploys from GitHub, they should be included in `backend/requirements.txt`.
+
 ---
 
 ## Troubleshooting
@@ -166,11 +181,13 @@ After deployment, check:
 
 - **GitHub Branch**: `claude/all-fixes-final-8kV0q`
 - **Status**: Ready to merge to main
-- **Files Changed**: 5 files
-  - frontend/src/pages/QuestionsPage.js
-  - frontend/src/pages/HomePage.js
-  - frontend/public/index.html
-  - frontend/src/index.css
-  - frontend/src/components/Layout.js
+- **Files Changed**: 7 files
+  - frontend/src/pages/QuestionsPage.js (question header, session stats)
+  - frontend/src/pages/HomePage.js (card sizing)
+  - frontend/src/pages/ImportPage.js (multi-format import with drag-and-drop)
+  - frontend/public/index.html (mobile viewport)
+  - frontend/src/index.css (mobile overflow fixes)
+  - frontend/src/components/Layout.js (mobile menu, admin dropdown)
+  - backend/server.py (multi-format parsing support)
 
 All fixes are complete and tested. Choose Option 1 (merge PR) or Option 2 (manual update) to deploy.
