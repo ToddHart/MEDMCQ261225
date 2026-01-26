@@ -6,6 +6,7 @@ let selectedPatient = null;
 let currentWordFile = null;
 let currentPdfFile = null;
 let uploadedFiles = [];
+let selectedReportType = 'parent-full';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSettings();
     loadRecentReports();
     initializeFileUpload();
+    initializeReportTypeSelection();
 
     // Event listeners
     document.getElementById('patient-select').addEventListener('change', handlePatientSelect);
@@ -76,14 +78,21 @@ async function loadPatients() {
 
 function populatePatientSelect() {
     const select = document.getElementById('patient-select');
-    select.innerHTML = '<option value="">Select a patient...</option>';
+    select.innerHTML = '';
 
-    patients.forEach(patient => {
+    patients.forEach((patient, index) => {
         const option = document.createElement('option');
         option.value = patient.patient_id;
         option.textContent = `${patient.patient_id} - ${patient.name} (${patient.age}, ${patient.gender})`;
         select.appendChild(option);
     });
+
+    // Set first patient as default "Current patient"
+    if (patients.length > 0) {
+        select.value = patients[0].patient_id;
+        selectedPatient = patients[0];
+        displayPatientInfo(patients[0]);
+    }
 }
 
 function handlePatientSelect(e) {
@@ -152,6 +161,107 @@ function displayPatients() {
 
         container.appendChild(card);
     });
+}
+
+// Report Type Selection
+function initializeReportTypeSelection() {
+    const reportTypeBtns = document.querySelectorAll('.report-type-btn');
+
+    reportTypeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active class from all buttons
+            reportTypeBtns.forEach(b => b.classList.remove('active'));
+            // Add active class to clicked button
+            btn.classList.add('active');
+            // Store selected type
+            selectedReportType = btn.getAttribute('data-type');
+        });
+    });
+}
+
+// Training Functions
+async function startTraining() {
+    const btn = document.getElementById('train-btn');
+    const statusDiv = document.getElementById('training-status');
+    const statusText = document.getElementById('training-status-text');
+    const spinner = document.querySelector('.training-spinner');
+
+    try {
+        // Show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-icon">⏳</span><span>Training...</span>';
+        statusDiv.style.display = 'block';
+        spinner.style.display = 'block';
+        statusText.textContent = 'Training AI on your reports...';
+
+        const trainingPath = document.getElementById('training-path').textContent;
+
+        const response = await fetch('/api/train', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                training_path: trainingPath
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            statusText.textContent = `✓ Training complete! Analyzed ${data.num_reports} reports.`;
+            spinner.style.display = 'none';
+            showToast('AI training completed successfully!', 'success');
+
+            // Update the stats
+            document.getElementById('style-count').textContent = data.num_reports;
+        } else {
+            statusText.textContent = '✗ Training failed: ' + data.error;
+            spinner.style.display = 'none';
+            showToast('Training failed: ' + data.error, 'error');
+        }
+    } catch (error) {
+        statusText.textContent = '✗ Error: ' + error.message;
+        spinner.style.display = 'none';
+        showToast('Error: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">🎓</span><span>Start Training</span>';
+    }
+}
+
+async function updateTrainingPath() {
+    const customPath = document.getElementById('custom-training-path').value.trim();
+
+    if (!customPath) {
+        showToast('Please enter a valid path', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/update-training-path', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                training_path: customPath
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('training-path').textContent = data.training_path;
+            document.getElementById('style-count').textContent = data.num_reports;
+            showToast('Training path updated successfully!', 'success');
+            document.getElementById('custom-training-path').value = '';
+        } else {
+            showToast('Error updating path: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
 }
 
 // File Upload
@@ -290,6 +400,7 @@ async function handleGenerateReport() {
             body: JSON.stringify({
                 patient_id: selectedPatient.patient_id,
                 format: format,
+                report_type: selectedReportType,  // Include report type
                 uploaded_data: uploadedFiles  // Include uploaded files
             })
         });

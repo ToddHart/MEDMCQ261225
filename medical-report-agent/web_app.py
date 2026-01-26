@@ -84,6 +84,7 @@ def generate_report():
         data = request.json
         patient_id = data.get('patient_id')
         output_format = data.get('format', 'both')
+        report_type = data.get('report_type', 'parent-full')
         uploaded_data = data.get('uploaded_data', [])  # Get uploaded file content
 
         if not patient_id:
@@ -113,7 +114,8 @@ def generate_report():
             patient_id=patient_id,
             patient_db_path=str(patient_db_path),
             example_reports_dir=str(project_root / "data" / "example_reports"),
-            additional_context=patient_data.get('additional_documents', '')
+            additional_context=patient_data.get('additional_documents', ''),
+            report_type=report_type
         )
 
         # Format documents
@@ -303,6 +305,94 @@ def extract_file_content(file_path, filename):
 
     except Exception as e:
         return f"[Error reading {filename}: {str(e)}]"
+
+@app.route('/api/train', methods=['POST'])
+def train_agent():
+    """Train the AI agent on the current training data"""
+    try:
+        data = request.json
+        training_path = data.get('training_path')
+
+        if not training_path or training_path == '--':
+            training_path = str(project_root / "data" / "example_reports")
+
+        # Convert Windows path to WSL path if needed
+        if training_path.startswith('C:') or training_path.startswith('\\'):
+            # This is a Windows path, need to convert
+            # For now, use the default path
+            training_path = str(project_root / "data" / "example_reports")
+
+        training_dir = Path(training_path)
+        if not training_dir.exists():
+            return jsonify({'success': False, 'error': 'Training data path does not exist'})
+
+        # Reinitialize the style analyzer with new data
+        print(f"\nTraining AI agent on data from: {training_path}")
+        analyzer = StyleAnalyzer(training_dir)
+        global style_analysis, report_generator
+        style_analysis = analyzer.analyze_all()
+        report_generator = ReportGenerator(style_analysis)
+
+        # Count the number of reports
+        num_reports = len(list(training_dir.glob("*.txt")))
+
+        print(f"✓ Training complete! Analyzed {num_reports} reports.")
+
+        return jsonify({
+            'success': True,
+            'num_reports': num_reports,
+            'training_path': str(training_path)
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
+
+@app.route('/api/update-training-path', methods=['POST'])
+def update_training_path():
+    """Update the training data path"""
+    try:
+        data = request.json
+        new_path = data.get('training_path')
+
+        if not new_path:
+            return jsonify({'success': False, 'error': 'No path provided'})
+
+        # Convert Windows path to WSL path if needed
+        if new_path.startswith('C:') or new_path.startswith('\\'):
+            # Try to convert Windows path to WSL path
+            try:
+                # Remove drive letter and convert backslashes
+                if new_path[1] == ':':
+                    drive = new_path[0].lower()
+                    path_part = new_path[2:].replace('\\', '/')
+                    wsl_path = f"/mnt/{drive}{path_part}"
+                    new_path = wsl_path
+            except Exception:
+                return jsonify({'success': False, 'error': 'Could not convert Windows path to WSL path'})
+
+        path_obj = Path(new_path)
+        if not path_obj.exists():
+            return jsonify({'success': False, 'error': f'Path does not exist: {new_path}'})
+
+        if not path_obj.is_dir():
+            return jsonify({'success': False, 'error': 'Path is not a directory'})
+
+        # Count reports in new path
+        num_reports = len(list(path_obj.glob("*.txt")))
+
+        if num_reports == 0:
+            return jsonify({'success': False, 'error': 'No .txt files found in specified directory'})
+
+        return jsonify({
+            'success': True,
+            'training_path': str(new_path),
+            'num_reports': num_reports
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
 
 @app.route('/static/<path:path>')
 def serve_static(path):

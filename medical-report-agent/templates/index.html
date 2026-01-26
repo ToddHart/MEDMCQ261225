@@ -137,6 +137,42 @@
 
                     <div class="form-card">
                         <div class="form-group">
+                            <label>Report Type</label>
+                            <div class="report-type-grid">
+                                <button type="button" class="report-type-btn active" data-type="parent-full">
+                                    <span class="type-icon">👨‍👩‍👧</span>
+                                    <span class="type-label">Parent</span>
+                                    <span class="type-variant">Full Report</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="parent-short">
+                                    <span class="type-icon">👨‍👩‍👧</span>
+                                    <span class="type-label">Parent</span>
+                                    <span class="type-variant">Shortened</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="specialist-full">
+                                    <span class="type-icon">🏥</span>
+                                    <span class="type-label">Specialist</span>
+                                    <span class="type-variant">Full Report</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="specialist-short">
+                                    <span class="type-icon">🏥</span>
+                                    <span class="type-label">Specialist</span>
+                                    <span class="type-variant">Shortened</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="other-full">
+                                    <span class="type-icon">📋</span>
+                                    <span class="type-label">Other</span>
+                                    <span class="type-variant">Full Report</span>
+                                </button>
+                                <button type="button" class="report-type-btn" data-type="other-short">
+                                    <span class="type-icon">📋</span>
+                                    <span class="type-label">Other</span>
+                                    <span class="type-variant">Shortened</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
                             <label>Output Format</label>
                             <div class="radio-group">
                                 <label class="radio-label">
@@ -225,8 +261,13 @@
                             <h3>📁 Training Data Location</h3>
                             <p>Location of example reports for style learning</p>
                             <div class="path-display" id="training-path">--</div>
-                            <button class="btn-secondary" onclick="alert('File browser integration: Select folder in WSL filesystem')">
-                                Change Location
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <input type="text" id="custom-training-path" class="form-control"
+                                       placeholder="Enter custom training data path (e.g., C:\MyReports)"
+                                       style="margin-bottom: 0.5rem;">
+                            </div>
+                            <button class="btn-secondary" onclick="updateTrainingPath()">
+                                Update Path
                             </button>
                         </div>
 
@@ -253,6 +294,22 @@
                             <p>Number of example reports for style learning</p>
                             <div class="stat-large" id="style-count">--</div>
                             <p class="hint">Recommended: 20+ reports for best results</p>
+                        </div>
+
+                        <div class="setting-card training-card">
+                            <h3>🎓 Train AI Agent</h3>
+                            <p>Train the AI on current training data to learn your writing style</p>
+                            <div id="training-status" style="margin: 1rem 0; padding: 1rem; background: #F0F4F8; border-radius: 8px; display: none;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <div class="training-spinner" style="display: none;"></div>
+                                    <span id="training-status-text">Ready to train</span>
+                                </div>
+                            </div>
+                            <button id="train-btn" class="btn-primary" onclick="startTraining()" style="margin-top: 1rem;">
+                                <span class="btn-icon">🎓</span>
+                                <span>Start Training</span>
+                            </button>
+                            <p class="hint" style="margin-top: 1rem;">Training analyzes your example reports and updates the AI's understanding of your writing style. This process uses Claude Opus 4.5.</p>
                         </div>
                     </div>
                 </div>

@@ -43,13 +43,29 @@ class ReportGenerator:
 
         raise ValueError(f"Patient {patient_id} not found in database")
 
-    def generate_with_ai(self, patient_data, example_reports):
+    def generate_with_ai(self, patient_data, example_reports, report_type='parent-full'):
         """Generate report using AI (Claude API or local model)"""
+
+        # Parse report type
+        audience, length = report_type.split('-')
+        audience_map = {
+            'parent': 'parents/guardians',
+            'specialist': 'medical specialists and other healthcare professionals',
+            'other': 'general audience'
+        }
+        target_audience = audience_map.get(audience, 'general audience')
+
+        length_instruction = "comprehensive and detailed" if length == 'full' else "concise and summarized"
 
         # Create prompt that teaches the AI the style
         style_examples = "\n\n---EXAMPLE REPORT---\n\n".join([
             report['content'] for report in example_reports[:3]  # Use first 3 as examples
         ])
+
+        # Add additional context if present
+        additional_context = ""
+        if 'additional_context' in patient_data:
+            additional_context = f"\n\nADDITIONAL PATIENT INFORMATION:\n{patient_data['additional_context']}\n"
 
         prompt = f"""You are a clinical psychologist writing a psychological assessment report.
 
@@ -65,28 +81,33 @@ EXAMPLE REPORTS (showing my writing style, structure, tone, and format):
 
 Now, write a NEW psychological assessment report for this patient, using the EXACT same style, structure, tone, and formatting as shown in the examples above:
 
+TARGET AUDIENCE: {target_audience}
+REPORT LENGTH: {length_instruction}
+
 PATIENT DATA:
 {json.dumps(patient_data, indent=2)}
+{additional_context}
 
 IMPORTANT INSTRUCTIONS:
 1. Match the writing style, tone, and formality of the example reports
 2. Use similar section headers and organization
 3. Use similar language patterns and clinical terminology
-4. Format the report professionally
-5. Be thorough but concise
-6. Include all relevant test data
-7. Provide clinical interpretation of results
-8. Make appropriate recommendations
-9. Use [REDACTED] for examiner name and license info at the end
-10. The report should look like it came from the same psychologist who wrote the examples
+4. Tailor the language and technical detail level for {target_audience}
+5. Make the report {length_instruction}
+6. Format the report professionally
+7. Include all relevant test data
+8. Provide clinical interpretation of results
+9. Make appropriate recommendations
+10. Use [REDACTED] for examiner name and license info at the end
+11. The report should look like it came from the same psychologist who wrote the examples
 
 Write the complete report now:"""
 
         if self.api_client:
             try:
                 response = self.api_client.messages.create(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=4000,
+                    model="claude-opus-4-5-20251101",
+                    max_tokens=8000,
                     messages=[{
                         "role": "user",
                         "content": prompt
@@ -156,15 +177,22 @@ TESTS ADMINISTERED:
 
         return report
 
-    def generate_report(self, patient_id, patient_db_path, example_reports_dir):
+    def generate_report(self, patient_id, patient_db_path, example_reports_dir,
+                       additional_context='', report_type='parent-full'):
         """Main method to generate a complete report"""
         print(f"\n{'='*60}")
         print(f"Generating Report for Patient: {patient_id}")
+        print(f"Report Type: {report_type}")
         print(f"{'='*60}\n")
 
         # Load patient data
         print("Loading patient data...")
         patient_data = self.load_patient_data(patient_id, patient_db_path)
+
+        # Add additional context if provided
+        if additional_context:
+            patient_data['additional_context'] = additional_context
+
         print(f"✓ Loaded data for {patient_data['name']}")
         print(f"  Tests: {len(patient_data['tests'])} assessments")
 
@@ -182,7 +210,7 @@ TESTS ADMINISTERED:
 
         # Generate report
         print("\nGenerating report using learned style...")
-        report_content = self.generate_with_ai(patient_data, example_reports)
+        report_content = self.generate_with_ai(patient_data, example_reports, report_type)
 
         print(f"\n{'='*60}")
         print("Report Generation Complete!")
@@ -192,6 +220,7 @@ TESTS ADMINISTERED:
             'patient_id': patient_id,
             'patient_name': patient_data['name'],
             'content': report_content,
+            'report_type': report_type,
             'generated_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
