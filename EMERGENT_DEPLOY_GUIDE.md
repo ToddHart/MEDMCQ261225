@@ -43,7 +43,7 @@ If Emergent doesn't auto-sync with GitHub, copy these code changes directly into
               {/* Question Header - Double height for better visibility */}
               <div
                 ref={questionHeaderRef}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4 py-4 sm:py-5 sticky top-0 z-30"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4 py-4 sm:py-5 sticky top-16 z-30"
               >
                 {/* Two rows layout for better spacing */}
                 <div className="flex flex-col gap-2 sm:gap-3">
