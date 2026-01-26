@@ -136,17 +136,24 @@ def open_file():
         if not file_path or not os.path.exists(file_path):
             return jsonify({'success': False, 'error': 'File not found'})
 
+        # Check if running in WSL
+        is_wsl = 'microsoft' in os.uname().release.lower() if hasattr(os, 'uname') else False
+
         # Open file in default application
-        if sys.platform == 'win32':
-            # Windows - convert WSL path to Windows path
-            wsl_path = file_path
-            result = subprocess.run(['wslpath', '-w', wsl_path], capture_output=True, text=True)
-            if result.returncode == 0:
+        if is_wsl or sys.platform == 'win32':
+            # WSL or Windows - convert to Windows path and open
+            try:
+                # Convert WSL path to Windows path
+                result = subprocess.run(['wslpath', '-w', file_path],
+                                      capture_output=True, text=True, check=True)
                 windows_path = result.stdout.strip()
-                os.startfile(windows_path)
-            else:
-                # Fallback
-                subprocess.run(['cmd.exe', '/c', 'start', '', file_path], shell=True)
+
+                # Open using cmd.exe from WSL
+                subprocess.run(['cmd.exe', '/c', 'start', '', windows_path],
+                             shell=False, check=False)
+                return jsonify({'success': True})
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to open file: {str(e)}'})
         elif sys.platform == 'darwin':
             subprocess.run(['open', file_path])
         else:
