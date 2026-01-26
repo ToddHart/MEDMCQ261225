@@ -8,15 +8,25 @@ Write-Host "Desktop Icon Installer" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Get API key from user
-Write-Host "Enter your Anthropic API key:" -ForegroundColor Yellow
-Write-Host "(Get it from: https://console.anthropic.com/settings/keys)" -ForegroundColor Gray
-$ApiKey = Read-Host "API Key"
+# Check if API key already exists in WSL
+Write-Host "Checking for existing API key..." -ForegroundColor Yellow
+$ExistingKey = wsl bash -c "cd ~/MEDMCQ261225/medical-report-agent 2>/dev/null && [ -f set_api_key.local.sh ] && grep 'ANTHROPIC_API_KEY=' set_api_key.local.sh | sed 's/.*ANTHROPIC_API_KEY=\"\(.*\)\"/\1/'" 2>$null
 
-if ([string]::IsNullOrWhiteSpace($ApiKey)) {
-    Write-Host "✗ API key required" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit
+if ([string]::IsNullOrWhiteSpace($ExistingKey)) {
+    # No existing key, prompt for it
+    Write-Host "Enter your Anthropic API key:" -ForegroundColor Yellow
+    Write-Host "(Get it from: https://console.anthropic.com/settings/keys)" -ForegroundColor Gray
+    $ApiKey = Read-Host "API Key"
+
+    if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+        Write-Host "✗ API key required" -ForegroundColor Red
+        Read-Host "Press Enter to exit"
+        exit
+    }
+} else {
+    # Reuse existing key
+    $ApiKey = $ExistingKey.Trim()
+    Write-Host "✓ Found existing API key" -ForegroundColor Green
 }
 
 # Create application directory
