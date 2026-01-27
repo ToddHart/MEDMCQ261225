@@ -333,8 +333,8 @@ const Layout = ({ children }) => {
         )}
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 w-full px-2 sm:px-4 py-2 relative overflow-x-hidden" style={{ zIndex: 1 }}>
+      {/* Main Content - pt-4 adds spacing below sticky header */}
+      <main className="flex-1 w-full px-2 sm:px-4 pt-4 pb-2 relative overflow-x-hidden" style={{ zIndex: 1 }}>
         <div className="max-w-7xl mx-auto w-full overflow-x-hidden">
           {children}
         </div>
