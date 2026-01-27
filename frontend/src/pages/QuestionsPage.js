@@ -900,25 +900,35 @@ const QuestionsPage = () => {
           {/* Main Content - Question Card */}
           <div className="lg:col-span-4 w-full overflow-x-hidden">
             <div className="bg-white rounded-xl shadow-lg border-2 border-gray-100 w-full overflow-hidden">
-              {/* Question Header - Double height for better visibility */}
+              {/* Question Header - Compact single row for PC, stacked for mobile */}
               <div
                 ref={questionHeaderRef}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4 py-4 sm:py-5"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4 py-2 sm:py-2.5"
               >
-                {/* Two rows layout for better spacing */}
-                <div className="flex flex-col gap-2 sm:gap-3">
-                  {/* Top row: Question number and timer */}
+                {/* Mobile: Two rows layout */}
+                <div className="flex flex-col gap-2 lg:hidden">
                   <div className="flex items-center justify-between">
-                    <span className="text-base sm:text-lg font-bold bg-white/20 px-3 py-1.5 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
-                    <div className="text-base sm:text-lg font-bold bg-white/20 px-3 py-1.5 rounded whitespace-nowrap">
+                    <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
+                    <div className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">
                       {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
                     </div>
                   </div>
-                  {/* Bottom row: Category, Year, Difficulty */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm sm:text-base font-semibold capitalize bg-green-400 text-green-900 px-3 py-1 rounded whitespace-nowrap">{question.category}</span>
-                    <span className="text-sm sm:text-base font-semibold bg-blue-400 text-blue-900 px-3 py-1 rounded whitespace-nowrap">Year {question.year}</span>
-                    <span className="text-sm sm:text-base font-semibold bg-purple-400 text-purple-900 px-3 py-1 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
+                    <span className="text-sm font-semibold capitalize bg-green-400 text-green-900 px-2 py-0.5 rounded whitespace-nowrap">{question.category}</span>
+                    <span className="text-sm font-semibold bg-blue-400 text-blue-900 px-2 py-0.5 rounded whitespace-nowrap">Year {question.year}</span>
+                    <span className="text-sm font-semibold bg-purple-400 text-purple-900 px-2 py-0.5 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
+                  </div>
+                </div>
+                {/* PC: Single row layout - all items on one line */}
+                <div className="hidden lg:flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
+                    <span className="text-sm font-semibold capitalize bg-green-400 text-green-900 px-3 py-1 rounded whitespace-nowrap">{question.category}</span>
+                    <span className="text-sm font-semibold bg-blue-400 text-blue-900 px-3 py-1 rounded whitespace-nowrap">Year {question.year}</span>
+                    <span className="text-sm font-semibold bg-purple-400 text-purple-900 px-3 py-1 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
+                  </div>
+                  <div className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">
+                    {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
                   </div>
                 </div>
               </div>
