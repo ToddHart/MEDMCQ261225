@@ -21,13 +21,15 @@ from models import (
     UserProgress, UserAnswer, CategoryProgress, StudySession,
     AIGenerationRequest, AIGenerationResponse,
     ExamSession, ExamResult, QuestionReport,
-    UserAnalytics, DataExportRequest
+    UserAnalytics, DataExportRequest,
+    APIToken, APITokenCreate, APITokenResponse, APITokenScope, SetupTokenRequest
 )
 
 # Import services
 from auth_service import (
     hash_password, verify_password, create_access_token,
-    create_refresh_token, get_current_user
+    create_refresh_token, get_current_user, create_api_token_model,
+    verify_api_token
 )
 from storage_service import storage_service
 from ai_service import ai_service
@@ -733,6 +735,109 @@ async def login(
         access_token=access_token,
         refresh_token=refresh_token
     )
+
+
+@api_router.post("/auth/setup-token", response_model=APITokenResponse)
+async def setup_token(
+    credentials: SetupTokenRequest,
+    request: Request,
+    tenant_id: str = Depends(get_current_tenant)
+):
+    """Generate a long-lived API token for CLI/programmatic access.
+
+    This endpoint authenticates the user and creates a persistent API token
+    that can be used for non-interactive authentication (CI/CD, scripts, etc.).
+
+    The full token is only returned once at creation time - store it securely.
+    """
+    # Find user within this tenant
+    user = await db.users.find_one({
+        "email": credentials.email,
+        "tenant_id": tenant_id
+    })
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+
+    # Verify password
+    if not verify_password(credentials.password, user['hashed_password']):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+
+    # Create the API token
+    full_token, api_token = create_api_token_model(
+        user_id=user['id'],
+        name=credentials.token_name,
+        scopes=[APITokenScope.READ, APITokenScope.WRITE],
+        expires_days=365
+    )
+
+    # Store the token in database
+    token_doc = api_token.model_dump()
+    token_doc['tenant_id'] = tenant_id
+    await db.api_tokens.insert_one(token_doc)
+
+    logger.info(f"API token created for user {user['id']} (prefix: {api_token.token_prefix})")
+
+    return APITokenResponse(
+        token=full_token,
+        token_prefix=api_token.token_prefix,
+        name=api_token.name,
+        scopes=api_token.scopes,
+        expires_at=api_token.expires_at,
+        created_at=api_token.created_at
+    )
+
+
+@api_router.get("/auth/tokens")
+async def list_api_tokens(
+    user_id: str = Depends(get_current_user)
+):
+    """List all API tokens for the current user."""
+    tokens = await db.api_tokens.find({
+        "user_id": user_id,
+        "is_active": True
+    }).to_list(100)
+
+    return [
+        {
+            "id": token['id'],
+            "name": token['name'],
+            "token_prefix": token['token_prefix'],
+            "scopes": token['scopes'],
+            "created_at": token['created_at'],
+            "last_used_at": token.get('last_used_at'),
+            "expires_at": token.get('expires_at')
+        }
+        for token in tokens
+    ]
+
+
+@api_router.delete("/auth/tokens/{token_id}")
+async def revoke_api_token(
+    token_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Revoke an API token."""
+    result = await db.api_tokens.update_one(
+        {"id": token_id, "user_id": user_id},
+        {"$set": {"is_active": False}}
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token not found"
+        )
+
+    logger.info(f"API token {token_id} revoked by user {user_id}")
+    return {"status": "revoked"}
+
 
 @api_router.post("/auth/forgot-password")
 async def forgot_password(

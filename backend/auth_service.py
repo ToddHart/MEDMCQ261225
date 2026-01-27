@@ -4,8 +4,9 @@ from jose import JWTError, jwt
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
-from typing import Optional
-from models import TokenData
+import secrets
+from typing import Optional, List
+from models import TokenData, APIToken, APITokenScope
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -69,3 +70,59 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     token = credentials.credentials
     token_data = decode_token(token)
     return token_data.user_id
+
+
+# API Token Functions (for CLI/programmatic access)
+API_TOKEN_PREFIX = "sk-med-"
+
+def generate_api_token() -> tuple[str, str, str]:
+    """Generate a new API token.
+
+    Returns:
+        tuple: (full_token, token_hash, token_prefix)
+    """
+    # Generate 32 bytes of randomness (256 bits)
+    random_bytes = secrets.token_hex(32)
+    full_token = f"{API_TOKEN_PREFIX}{random_bytes}"
+
+    # Hash the token for storage
+    token_hash = hash_password(full_token)
+
+    # Create prefix for identification (first 8 chars after prefix)
+    token_prefix = f"{API_TOKEN_PREFIX}{random_bytes[:8]}..."
+
+    return full_token, token_hash, token_prefix
+
+
+def verify_api_token(plain_token: str, hashed_token: str) -> bool:
+    """Verify an API token against its hash."""
+    return verify_password(plain_token, hashed_token)
+
+
+def create_api_token_model(
+    user_id: str,
+    name: str,
+    scopes: List[APITokenScope],
+    expires_days: Optional[int] = 365
+) -> tuple[str, APIToken]:
+    """Create an API token model with hashed token.
+
+    Returns:
+        tuple: (full_token, APIToken model)
+    """
+    full_token, token_hash, token_prefix = generate_api_token()
+
+    expires_at = None
+    if expires_days:
+        expires_at = datetime.utcnow() + timedelta(days=expires_days)
+
+    api_token = APIToken(
+        user_id=user_id,
+        name=name,
+        token_hash=token_hash,
+        token_prefix=token_prefix,
+        scopes=scopes,
+        expires_at=expires_at
+    )
+
+    return full_token, api_token

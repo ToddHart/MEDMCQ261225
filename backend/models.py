@@ -104,6 +104,44 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: Optional[str] = None
 
+# API Token Models (for CLI/programmatic access)
+class APITokenScope(str, Enum):
+    READ = "read"
+    WRITE = "write"
+    ADMIN = "admin"
+
+class APIToken(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    name: str = "CLI Token"
+    token_hash: str  # Hashed version of the token
+    token_prefix: str  # First 8 chars for identification (e.g., "sk-med-xx")
+    scopes: List[APITokenScope] = [APITokenScope.READ, APITokenScope.WRITE]
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_used_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    is_active: bool = True
+
+class APITokenCreate(BaseModel):
+    name: str = "CLI Token"
+    scopes: List[APITokenScope] = [APITokenScope.READ, APITokenScope.WRITE]
+    expires_days: Optional[int] = 365  # Default 1 year expiry
+
+class APITokenResponse(BaseModel):
+    token: str  # Full token (only shown once at creation)
+    token_prefix: str
+    name: str
+    scopes: List[APITokenScope]
+    expires_at: Optional[datetime]
+    created_at: datetime
+
+class SetupTokenRequest(BaseModel):
+    email: EmailStr
+    password: str
+    token_name: str = "CLI Token"
+
 # Question Models
 class QuestionBase(BaseModel):
     question: str
