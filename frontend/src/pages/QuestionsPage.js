@@ -923,9 +923,9 @@ const QuestionsPage = () => {
                 {/* PC: Single row layout - all items evenly spaced */}
                 <div className="hidden lg:flex items-center justify-between">
                   <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
-                  <span className="text-base font-bold capitalize bg-white/20 px-3 py-1 rounded whitespace-nowrap">{question.category}</span>
-                  <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Year {question.year}</span>
-                  <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
+                  <span className="text-base font-bold capitalize bg-green-400 text-green-900 px-3 py-1 rounded whitespace-nowrap">{question.category}</span>
+                  <span className="text-base font-bold bg-blue-400 text-blue-900 px-3 py-1 rounded whitespace-nowrap">Year {question.year}</span>
+                  <span className="text-base font-bold bg-purple-400 text-purple-900 px-3 py-1 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
                   <div className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">
                     {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
                   </div>
