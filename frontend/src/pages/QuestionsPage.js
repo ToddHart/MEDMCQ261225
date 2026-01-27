@@ -903,7 +903,7 @@ const QuestionsPage = () => {
               {/* Question Header - Compact single row for PC, stacked for mobile */}
               <div
                 ref={questionHeaderRef}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4 py-6"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4 py-12"
               >
                 {/* Mobile: Two rows layout */}
                 <div className="flex flex-col gap-2 lg:hidden">
