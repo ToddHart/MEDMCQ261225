@@ -4,17 +4,15 @@
 
 @layer base {
   html {
-    overflow-x: hidden !important;
+    overflow-x: hidden;
     width: 100%;
     min-height: 100%;
-    position: relative;
   }
 
   body {
-    overflow-x: hidden !important;
+    overflow-x: hidden;
     width: 100%;
     min-height: 100vh;
-    position: relative;
   }
 
   *, *::before, *::after {
@@ -23,36 +21,21 @@
 
   @media (max-width: 1023px) {
     html, body {
-      overflow-x: hidden !important;
-      max-width: 100vw !important;
-      width: 100vw !important;
-      position: relative;
+      overflow-x: hidden;
+      max-width: 100vw;
+      width: 100%;
     }
 
     #root {
-      overflow-x: hidden !important;
-      max-width: 100vw !important;
-      width: 100vw !important;
+      overflow-x: hidden;
+      max-width: 100vw;
+      width: 100%;
     }
 
-    * {
-      max-width: 100vw !important;
-    }
-
-    /* Prevent elements from causing horizontal scroll */
+    /* Prevent images from causing horizontal scroll */
     img, svg, video, iframe {
-      max-width: 100% !important;
+      max-width: 100%;
       height: auto;
-    }
-
-    /* Ensure buttons and inputs fit within viewport */
-    button, input, select, textarea {
-      max-width: 100% !important;
-    }
-
-    /* Fix any fixed/absolute positioned elements */
-    .fixed, [class*="fixed"] {
-      max-width: 100vw !important;
     }
   }
 }
