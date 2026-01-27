@@ -904,10 +904,9 @@ const QuestionsPage = () => {
               <div
                 ref={questionHeaderRef}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4"
-                style={{ paddingTop: '36px', paddingBottom: '24px' }}
               >
                 {/* Mobile: Two rows layout */}
-                <div className="flex flex-col gap-2 lg:hidden">
+                <div className="flex flex-col gap-2 lg:hidden" style={{ paddingTop: '24px', paddingBottom: '12px' }}>
                   <div className="flex items-center justify-between">
                     <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
                     <div className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">
@@ -921,7 +920,7 @@ const QuestionsPage = () => {
                   </div>
                 </div>
                 {/* PC: Single row layout - all items evenly spaced */}
-                <div className="hidden lg:flex items-center justify-between">
+                <div className="hidden lg:flex items-center justify-between" style={{ paddingTop: '36px', paddingBottom: '24px' }}>
                   <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
                   <span className="text-base font-bold capitalize bg-green-400 text-green-900 px-3 py-1 rounded whitespace-nowrap">{question.category}</span>
                   <span className="text-base font-bold bg-blue-400 text-blue-900 px-3 py-1 rounded whitespace-nowrap">Year {question.year}</span>
