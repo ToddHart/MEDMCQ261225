@@ -1009,10 +1009,10 @@ const QuestionsPage = () => {
                   <button
                     onClick={handleNext}
                     disabled={!answered}
-                    className={`w-full lg:w-48 px-3 py-3 rounded-xl transition-all font-bold flex items-center justify-center text-sm shadow-md hover:shadow-lg ${
+                    className={`w-full lg:w-48 px-3 py-3 rounded-xl transition-all font-bold flex items-center justify-center text-sm shadow-md hover:shadow-lg border-2 ${
                       answered 
-                        ? 'text-white' 
-                        : 'text-gray-500 bg-gray-300 cursor-not-allowed'
+                        ? 'text-white border-white' 
+                        : 'text-gray-500 bg-gray-300 border-gray-500 cursor-not-allowed'
                     }`}
                     style={answered ? { 
                       background: 'linear-gradient(90deg, #2563eb, #7c3aed)'
