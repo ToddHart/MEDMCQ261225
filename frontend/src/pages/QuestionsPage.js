@@ -903,7 +903,8 @@ const QuestionsPage = () => {
               {/* Question Header - Compact single row for PC, stacked for mobile */}
               <div
                 ref={questionHeaderRef}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4 py-12"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 sm:px-4"
+                style={{ paddingTop: '36px', paddingBottom: '24px' }}
               >
                 {/* Mobile: Two rows layout */}
                 <div className="flex flex-col gap-2 lg:hidden">
@@ -914,19 +915,17 @@ const QuestionsPage = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold capitalize bg-green-400 text-green-900 px-2 py-0.5 rounded whitespace-nowrap">{question.category}</span>
-                    <span className="text-sm font-semibold bg-blue-400 text-blue-900 px-2 py-0.5 rounded whitespace-nowrap">Year {question.year}</span>
-                    <span className="text-sm font-semibold bg-purple-400 text-purple-900 px-2 py-0.5 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
+                    <span className="text-sm font-semibold capitalize bg-white/20 px-2 py-0.5 rounded whitespace-nowrap">{question.category}</span>
+                    <span className="text-sm font-semibold bg-white/20 px-2 py-0.5 rounded whitespace-nowrap">Year {question.year}</span>
+                    <span className="text-sm font-semibold bg-white/20 px-2 py-0.5 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
                   </div>
                 </div>
-                {/* PC: Single row layout - all items on one line */}
+                {/* PC: Single row layout - all items evenly spaced */}
                 <div className="hidden lg:flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
-                    <span className="text-sm font-semibold capitalize bg-green-400 text-green-900 px-3 py-1 rounded whitespace-nowrap">{question.category}</span>
-                    <span className="text-sm font-semibold bg-blue-400 text-blue-900 px-3 py-1 rounded whitespace-nowrap">Year {question.year}</span>
-                    <span className="text-sm font-semibold bg-purple-400 text-purple-900 px-3 py-1 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
-                  </div>
+                  <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Q{currentIndex + 1}/{questions.length}</span>
+                  <span className="text-base font-bold capitalize bg-white/20 px-3 py-1 rounded whitespace-nowrap">{question.category}</span>
+                  <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">Year {question.year}</span>
+                  <span className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
                   <div className="text-base font-bold bg-white/20 px-3 py-1 rounded whitespace-nowrap">
                     {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
                   </div>
