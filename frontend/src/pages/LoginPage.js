@@ -471,11 +471,11 @@ const LoginPage = () => {
 
   return (
     <div 
-      className="h-screen flex flex-col overflow-hidden"
+      className="min-h-screen flex flex-col"
       style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
     >
-      {/* Main content area - 90% */}
-      <div className="flex-1 flex items-center justify-center px-4 overflow-hidden" style={{ height: '90%' }}>
+      {/* Main content area */}
+      <div className="flex-1 flex items-center justify-center px-4 py-4 overflow-y-auto">
         <div className="max-w-md w-full">
           {/* Logo */}
           <div className="text-center mb-4 sm:mb-6">
