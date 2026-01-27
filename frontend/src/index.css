@@ -49,49 +49,13 @@ body {
         sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden !important;
+    overflow-x: hidden;
 }
 
 /* Ensure containers don't overflow */
 .container {
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-}
-
-/* Mobile-specific improvements for better display */
-@media (max-width: 1023px) {
-  /* Prevent horizontal scrolling */
-  body {
-    touch-action: pan-y pinch-zoom;
-  }
-
-  /* Ensure proper spacing on mobile */
-  .container {
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
-
-  /* Fix button sizing on mobile */
-  button {
-    min-width: fit-content;
-    white-space: nowrap;
-  }
-
-  /* Ensure mobile menu doesn't cause overflow */
-  nav {
-    max-width: 100vw !important;
-  }
-
-  /* Prevent text from causing overflow */
-  h1, h2, h3, h4, h5, h6, p, span, div {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-
-  /* Fix for modals and dropdowns */
-  [role="dialog"], [role="menu"] {
-    max-width: calc(100vw - 2rem) !important;
-  }
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 code {
