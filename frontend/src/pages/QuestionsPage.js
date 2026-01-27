@@ -915,9 +915,9 @@ const QuestionsPage = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold capitalize bg-white/20 px-2 py-0.5 rounded whitespace-nowrap">{question.category}</span>
-                    <span className="text-sm font-semibold bg-white/20 px-2 py-0.5 rounded whitespace-nowrap">Year {question.year}</span>
-                    <span className="text-sm font-semibold bg-white/20 px-2 py-0.5 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
+                    <span className="text-sm font-semibold capitalize bg-green-400 text-green-900 px-2 py-0.5 rounded whitespace-nowrap">{question.category}</span>
+                    <span className="text-sm font-semibold bg-blue-400 text-blue-900 px-2 py-0.5 rounded whitespace-nowrap">Year {question.year}</span>
+                    <span className="text-sm font-semibold bg-purple-400 text-purple-900 px-2 py-0.5 rounded whitespace-nowrap">{complexityLabels[question.difficulty] || `Level ${question.difficulty}`}</span>
                   </div>
                 </div>
                 {/* PC: Single row layout - all items evenly spaced */}
